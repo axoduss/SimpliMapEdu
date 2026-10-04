@@ -382,6 +382,53 @@
 		
 		
 		
+		.note-panel {
+			position: fixed;
+			top: 60px;
+			right: 20px;
+			background: white;
+			border: 3px solid #2c3e50;
+			border-radius: 10px;
+			padding: 15px;
+			box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+			z-index: 1001;
+			display: none;
+			width: 300px;
+		}
+		.note-panel.visible { display: block; }
+		.note-panel textarea {
+			width: 100%;
+			min-height: 120px;
+			font-family: inherit;
+			font-size: 14px;
+			padding: 8px;
+			border: 2px solid #bdc3c7;
+			border-radius: 6px;
+			resize: vertical;
+		}
+		.note-panel textarea:focus { outline: 3px solid #f39c12; outline-offset: 2px; }
+		.note-action {
+			padding: 8px 15px;
+			font-family: inherit;
+			font-weight: bold;
+			border: 2px solid #2c3e50;
+			border-radius: 5px;
+			background: #ecf0f1;
+			color: #2c3e50;
+			cursor: pointer;
+		}
+		.note-action:hover { background: #3498db; color: white; }
+		.note-action:focus { outline: 3px solid #f39c12; outline-offset: 2px; }
+		.note-icon {
+			cursor: pointer;
+			font-size: 1.2em;
+			margin-left: 4px;
+		}
+		.note-icon.has-note { filter: none; }
+		.note-icon.empty-note { opacity: 0.35; }
+		
+		
+		
     </style>
 </head>
 <body>
@@ -440,6 +487,16 @@
 			<button class="marker-btn" data-icon="1️⃣" aria-label="Priorità 1">1️⃣</button>
 			<button class="marker-btn" data-icon="2️⃣" aria-label="Priorità 2">2️⃣</button>
 			<button class="marker-btn" data-icon="3️⃣" aria-label="Priorità 3">3️⃣</button>
+		</div>
+	</div>
+	
+	
+	<div class="note-panel" id="note-panel" role="dialog" aria-label="Nota del nodo">
+		<h3 style="margin-bottom:10px; color:#2c3e50; font-size:1.1em;">📝 Nota</h3>
+		<textarea id="note-textarea" aria-label="Testo della nota" placeholder="Scrivi qui la tua nota..."></textarea>
+		<div style="display:flex; gap:8px; margin-top:10px; justify-content:flex-end;">
+			<button id="note-save" class="note-action">Salva</button>
+			<button id="note-close" class="note-action">Chiudi</button>
 		</div>
 	</div>
 	
@@ -524,6 +581,21 @@
 					btn.addEventListener('click', () => {
 						this.toggleIcon(btn.dataset.icon);
 					});
+				});
+				
+				// Pannello note
+				document.getElementById('note-save').addEventListener('click', () => {
+					if (this.selectedNode) {
+						this.saveState();
+						this.selectedNode.note = document.getElementById('note-textarea').value;
+						this.render();
+						this.selectNode(this.selectedNode, false);
+						this.saveToStorage();
+					}
+					document.getElementById('note-panel').classList.remove('visible');
+				});
+				document.getElementById('note-close').addEventListener('click', () => {
+					document.getElementById('note-panel').classList.remove('visible');
 				});
 				
 				
@@ -716,7 +788,8 @@
                     parentId: null,
                     childrenCount: 0,
                     icons: [],
-					collapsed: false
+					collapsed: false,
+					note: ''
                 };
                 this.nodes.push(root);
                 this.selectedNode = root;
@@ -744,7 +817,8 @@
                     parentId: parent.id,
                     childrenCount: 0,
                     icons: [],
-					collapsed: false
+					collapsed: false,
+					note: ''
                 };
 
                 parent.childrenCount = count + 1;
@@ -776,7 +850,8 @@
                     parentId: sibling.parentId,
                     childrenCount: 0,
                     icons: [],
-					collapsed: false
+					collapsed: false,
+					note: ''
                 };
 
                 parent.childrenCount = (parent.childrenCount || 0) + 1;
@@ -927,6 +1002,15 @@
 				this.render();
 				this.selectNode(this.selectedNode, false); // mantiene la selezione visiva
 				this.saveToStorage();
+			}
+			
+			openNotePanel(node) {
+				this.selectedNode = node;
+				const panel = document.getElementById('note-panel');
+				const textarea = document.getElementById('note-textarea');
+				textarea.value = node.note || '';
+				panel.classList.add('visible');
+				textarea.focus();
 			}
 			
 			
@@ -1099,6 +1183,26 @@
 					});
 					div.appendChild(iconsDiv);
 				}
+				
+				// Icona nota
+				const noteDiv = document.createElement('div');
+				noteDiv.style.display = 'flex';
+				noteDiv.style.justifyContent = 'flex-end';
+				noteDiv.style.marginTop = '4px';
+				const noteIcon = document.createElement('span');
+				noteIcon.className = 'note-icon ' + (node.note ? 'has-note' : 'empty-note');
+				noteIcon.textContent = '📝';
+				noteIcon.title = node.note ? 'Modifica nota' : 'Aggiungi nota';
+				noteIcon.setAttribute('role', 'button');
+				noteIcon.setAttribute('aria-label', node.note ? 'Modifica nota del nodo' : 'Aggiungi nota al nodo');
+				noteIcon.addEventListener('mousedown', (e) => e.stopPropagation());
+				noteIcon.addEventListener('click', (e) => {
+					e.stopPropagation();
+					this.openNotePanel(node);
+				});
+				noteDiv.appendChild(noteIcon);
+				div.appendChild(noteDiv);
+				
 				
 				// toggle
 				if (this.getDescendants(node.id).length > 0) {

@@ -1,0 +1,1368 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mappa Mentale</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Verdana&family=Arial&family=Comic+Neue:wght@400;700&display=swap');
+        
+        :root {
+            --bg-color: #f5f5f5;
+            --node-bg: #ffffff;
+            --text-color: #1a1a1a;
+            --border-color: #333333;
+            --focus-border: #0066cc;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Verdana', 'Arial', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            overflow: hidden;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+
+        .toolbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: #2c3e50;
+            padding: 10px 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            z-index: 1000;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .toolbar button, .toolbar select {
+            padding: 10px 15px;
+            font-size: 14px;
+            font-family: inherit;
+            border: 2px solid transparent;
+            border-radius: 5px;
+            cursor: pointer;
+            background: #ecf0f1;
+            color: #2c3e50;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        .toolbar button:hover, .toolbar select:hover {
+            background: #3498db;
+            color: white;
+        }
+
+        .toolbar button:focus, .toolbar select:focus {
+            outline: 3px solid #f39c12;
+            outline-offset: 2px;
+        }
+
+        .toolbar button.active {
+            background: #27ae60;
+            color: white;
+        }
+
+        #canvas-container {
+            position: absolute;
+            top: 60px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            overflow: hidden;
+        }
+
+        #mindmap-canvas {
+            position: absolute;
+            transform-origin: 0 0;
+        }
+
+        .node {
+            position: absolute;
+            background: var(--node-bg);
+            border: 3px solid var(--border-color);
+            border-radius: 10px;
+            padding: 12px 18px;
+			width: max-content;
+            min-width: 120px;
+            max-width: 500px;
+            cursor: move;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+            transition: box-shadow 0.2s, border-color 0.2s;
+        }
+
+        .node:hover {
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .node.focused {
+            border-color: var(--focus-border);
+            box-shadow: 0 0 0 4px rgba(0,102,204,0.3);
+            outline: none;
+        }
+
+        .node.root {
+            background: #3498db;
+            color: white;
+            font-size: 1.3em;
+            font-weight: bold;
+            padding: 15px 25px;
+        }
+
+		.node textarea {
+			width: 100%;
+			border: none;
+			background: transparent;
+			font-family: inherit;
+			font-size: inherit;
+			resize: none;
+			outline: none;
+			color: inherit;
+			line-height: 1.5;
+			overflow: hidden;      /* evita la scrollbar interna */
+			display: block;        /* elimina spazi extra sotto */
+			min-height: 1.5em;
+			white-space: pre-wrap; /* rispetta gli a capo e manda a capo il testo lungo */
+			word-break: break-word;
+		}
+
+        .node.root textarea {
+            color: white;
+        }
+
+        .node textarea::selection {
+            background: #f39c12;
+            color: white;
+        }
+
+        .connections {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            transform-origin: 0 0;
+        }
+
+        .connection-line {
+            stroke-width: 3;
+            fill: none;
+        }
+
+        .zoom-controls {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 1000;
+        }
+
+        .zoom-controls button {
+            width: 50px;
+            height: 50px;
+            font-size: 24px;
+            border-radius: 50%;
+            border: 3px solid #2c3e50;
+            background: white;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        .zoom-controls button:hover {
+            background: #3498db;
+            color: white;
+        }
+
+        .zoom-controls button:focus {
+            outline: 3px solid #f39c12;
+            outline-offset: 2px;
+        }
+
+        .color-picker {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+
+        .color-btn {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: 3px solid transparent;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .color-btn:hover {
+            transform: scale(1.2);
+        }
+
+        .color-btn.active {
+            border-color: #2c3e50;
+            transform: scale(1.1);
+        }
+
+        .color-btn:focus {
+            outline: 3px solid #f39c12;
+            outline-offset: 2px;
+        }
+
+        .node-icons {
+            display: flex;
+            gap: 5px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+
+        .help-panel {
+            position: fixed;
+            top: 60px;
+            right: 20px;
+            background: white;
+            border: 3px solid #2c3e50;
+            border-radius: 10px;
+            padding: 15px;
+            max-width: 350px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            z-index: 1001;
+            display: none;
+        }
+
+        .help-panel.visible {
+            display: block;
+        }
+
+        .help-panel h3 {
+            margin-bottom: 10px;
+            color: #2c3e50;
+            font-size: 1.2em;
+        }
+
+        .help-panel ul {
+            list-style: none;
+            font-size: 0.9em;
+        }
+
+        .help-panel li {
+            margin-bottom: 8px;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .help-panel li:before {
+            content: "→";
+            position: absolute;
+            left: 0;
+            color: #3498db;
+            font-weight: bold;
+        }
+
+        .help-panel kbd {
+            background: #ecf0f1;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+            border: 1px solid #bdc3c7;
+        }
+
+        body.high-contrast {
+            --bg-color: #000000;
+            --node-bg: #1a1a1a;
+            --text-color: #ffffff;
+            --border-color: #ffffff;
+        }
+
+        body.high-contrast .toolbar {
+            background: #000000;
+            border-bottom: 2px solid #ffffff;
+        }
+
+        body.high-contrast .node {
+            border-width: 4px;
+        }
+
+        body.large-font {
+            font-size: 20px;
+        }
+
+        body.large-font .node {
+            font-size: 1.2em;
+        }
+
+        body.wide-spacing .node {
+            letter-spacing: 0.05em;
+            word-spacing: 0.1em;
+        }
+
+        .save-notification {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #27ae60;
+            color: white;
+            padding: 12px 25px;
+            border-radius: 5px;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 1002;
+            pointer-events: none;
+        }
+
+        .save-notification.visible {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="toolbar" role="toolbar" aria-label="Strumenti mappa mentale">
+        <button id="btn-new" title="Nuova mappa (Ctrl+N)" aria-label="Nuova mappa">📄 Nuova</button>
+		<button id="btn-open-file" title="Apri file" aria-label="Apri file">📂 Apri</button>
+		<button id="btn-save-file" title="Salva su file (Ctrl+Shift+S)" aria-label="Salva su file">💾 Salva</button>
+        <button id="btn-add-child" title="Aggiungi nodo figlio (Tab)" aria-label="Aggiungi nodo figlio">➕ Aggiungi Nodo</button>
+        <button id="btn-add-sibling" title="Aggiungi nodo fratello (Enter)" aria-label="Aggiungi nodo fratello">➕ Fratello</button>
+        <button id="btn-delete" title="Elimina nodo (Canc)" aria-label="Elimina nodo">🗑️ Elimina</button>
+        
+        <div class="color-picker" role="group" aria-label="Colori rami">
+            <span style="color: white; font-weight: bold;">Colori:</span>
+            <button class="color-btn active" data-color="#4CAF50" style="background: #4CAF50;" aria-label="Verde"></button>
+            <button class="color-btn" data-color="#2196F3" style="background: #2196F3;" aria-label="Blu"></button>
+            <button class="color-btn" data-color="#FF9800" style="background: #FF9800;" aria-label="Arancione"></button>
+            <button class="color-btn" data-color="#E91E63" style="background: #E91E63;" aria-label="Rosa"></button>
+            <button class="color-btn" data-color="#9C27B0" style="background: #9C27B0;" aria-label="Viola"></button>
+        </div>
+
+
+        
+        <button id="btn-contrast" title="Alto contrasto" aria-label="Attiva alto contrasto">🔲 Contrasto</button>
+        <button id="btn-fontsize" title="Font grande" aria-label="Aumenta font">🔤 Font</button>
+        <button id="btn-spacing" title="Spaziatura ampia" aria-label="Spaziatura ampia">↔️ Spazio</button>
+        
+
+        <button id="btn-export" title="Esporta come immagine" aria-label="Esporta">📥 Esporta Immagine</button>
+		<button id="btn-help" title="Aiuto" aria-label="Aiuto">❓ Aiuto</button>
+
+
+		<input type="file" id="file-input" accept=".json,.simplimap" style="display: none;" aria-hidden="true">
+    </div>
+
+    <div id="canvas-container">
+        <svg class="connections" id="connections-svg"></svg>
+        <div id="mindmap-canvas"></div>
+    </div>
+
+    <div class="zoom-controls" role="group" aria-label="Zoom e navigazione">
+        <button id="btn-zoom-in" title="Zoom avanti (+)" aria-label="Zoom avanti">+</button>
+        <button id="btn-zoom-out" title="Zoom indietro (-)" aria-label="Zoom indietro">−</button>
+        <button id="btn-zoom-reset" title="Reset zoom (0)" aria-label="Reset zoom">⟲</button>
+        <button id="btn-center" title="Centra mappa" aria-label="Centra">⌂</button>
+    </div>
+
+    <div class="help-panel" id="help-panel" role="dialog" aria-labelledby="help-title">
+        <h3 id="help-title">⌨️ Scorciatoie da Tastiera</h3>
+        <ul>
+            <li><kbd>Tab</kbd> - Aggiungi nodo figlio</li>
+            <li><kbd>Enter</kbd> - Aggiungi nodo fratello</li>
+            <li><kbd>Canc</kbd> / <kbd>Backspace</kbd> - Elimina nodo</li>
+            <li><kbd>Ctrl</kbd> + <kbd>N</kbd> - Nuova mappa</li>
+                        <li><kbd>Ctrl</kbd> + <kbd>S</kbd> - Salva mappa</li>
+            <li><kbd>Ctrl</kbd> + <kbd>Z</kbd> - Annulla</li>
+            <li><kbd>Frecce</kbd> - Sposta tra nodi</li>
+            <li><kbd>+</kbd> / <kbd>-</kbd> - Zoom avanti/indietro</li>
+            <li><kbd>Spazio</kbd> + trascina - Panoramica</li>
+            <li><kbd>H</kbd> - Mostra/nascondi aiuto</li>
+        </ul>
+        <h3 style="margin-top: 15px;">♿ Accessibilità</h3>
+        <ul>
+            <li>Font ad alta leggibilità (Verdana)</li>
+            <li>Contrasti elevati personalizzabili</li>
+            <li>Navigazione completa da tastiera</li>
+            <li>Spaziatura regolabile</li>
+            <li>Etichette ARIA per screen reader</li>
+        </ul>
+    </div>
+
+    <div class="save-notification" id="save-notification" role="status" aria-live="polite">
+        ✓ Mappa salvata con successo!
+    </div>
+
+    <script>
+        // Applicazione Mappa Mentale Accessibile
+        class MindMap {
+            constructor() {
+                this.nodes = [];
+                this.connections = [];
+                this.selectedNode = null;
+                this.nodeIdCounter = 0;
+                this.scale = 1;
+                this.panX = 0;
+                this.panY = 0;
+                this.isPanning = false;
+                this.isDragging = false;
+                this.panStartX = 0;
+                this.panStartY = 0;
+                this.currentColor = '#4CAF50';
+                this.undoStack = [];
+
+                this.canvas = document.getElementById('mindmap-canvas');
+                this.svg = document.getElementById('connections-svg');
+
+                this.init();
+            }
+
+            init() {
+                this.setupEventListeners();
+                this.loadFromStorage();
+                if (this.nodes.length === 0) {
+                    this.createRootNode();
+                }
+                this.render();
+				this.startAutoSave();
+            }
+
+            setupEventListeners() {
+                // Toolbar buttons
+                document.getElementById('btn-new').addEventListener('click', () => this.newMap());
+                document.getElementById('btn-add-child').addEventListener('click', () => this.addChildNode());
+                document.getElementById('btn-add-sibling').addEventListener('click', () => this.addSiblingNode());
+                document.getElementById('btn-delete').addEventListener('click', () => this.deleteNode());
+                document.getElementById('btn-export').addEventListener('click', () => this.exportAsImage());
+                document.getElementById('btn-help').addEventListener('click', () => {
+                    document.getElementById('help-panel').classList.toggle('visible');
+                });
+				
+				
+				// Salva su file
+				document.getElementById('btn-save-file').addEventListener('click', () => this.saveToFile());
+
+				// Apri file
+				document.getElementById('btn-open-file').addEventListener('click', () => {
+					document.getElementById('file-input').click();
+				});
+				document.getElementById('file-input').addEventListener('change', (e) => {
+					const file = e.target.files[0];
+					if (file) {
+						this.loadFromFile(file);
+						e.target.value = ''; // reset così si può riaprire lo stesso file
+					}
+				});
+				
+				// Salvataggio di sicurezza alla chiusura della pagina
+				window.addEventListener('beforeunload', () => {
+					this.saveToStorage();
+				});
+				
+				
+				
+
+                // Accessibilità
+                document.getElementById('btn-contrast').addEventListener('click', (e) => {
+                    document.body.classList.toggle('high-contrast');
+                    e.currentTarget.classList.toggle('active');
+                });
+                document.getElementById('btn-fontsize').addEventListener('click', (e) => {
+                    document.body.classList.toggle('large-font');
+                    e.currentTarget.classList.toggle('active');
+                    this.render();
+                });
+                document.getElementById('btn-spacing').addEventListener('click', (e) => {
+                    document.body.classList.toggle('wide-spacing');
+                    e.currentTarget.classList.toggle('active');
+                    this.render();
+                });
+
+                // Color picker
+                document.querySelectorAll('.color-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+                        e.target.classList.add('active');
+                        this.currentColor = e.target.dataset.color;
+                        if (this.selectedNode && !this.selectedNode.isRoot) {
+                            this.saveState();
+                            this.selectedNode.color = this.currentColor;
+                            // Aggiorna anche il colore delle connessioni verso questo nodo
+                            this.connections.forEach(c => {
+                                if (c.to === this.selectedNode.id) c.color = this.currentColor;
+                            });
+                            this.render();
+                            this.saveToStorage();
+                        }
+                    });
+                });
+
+                // Zoom controls
+                document.getElementById('btn-zoom-in').addEventListener('click', () => this.zoom(0.2));
+                document.getElementById('btn-zoom-out').addEventListener('click', () => this.zoom(-0.2));
+                document.getElementById('btn-zoom-reset').addEventListener('click', () => this.resetZoom());
+                document.getElementById('btn-center').addEventListener('click', () => this.centerMap());
+
+                // Keyboard shortcuts
+                document.addEventListener('keydown', (e) => this.handleKeyboard(e));
+
+                // Pan con mouse (sul container, non sul canvas)
+                const container = document.getElementById('canvas-container');
+                container.addEventListener('mousedown', (e) => this.startPan(e));
+                document.addEventListener('mousemove', (e) => this.doPan(e));
+                document.addEventListener('mouseup', () => this.endPan());
+
+                // Touch support
+                container.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
+                container.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
+                container.addEventListener('touchend', () => this.endPan());
+
+                // Ricalcola centro al ridimensionamento finestra
+                window.addEventListener('resize', () => this.render());
+            }
+
+            handleKeyboard(e) {
+                // Help toggle (solo se non si sta scrivendo)
+                if ((e.key === 'h' || e.key === 'H') && e.target.tagName !== 'TEXTAREA') {
+                    document.getElementById('help-panel').classList.toggle('visible');
+                    return;
+                }
+
+                // Se si sta modificando testo
+                if (e.target.tagName === 'TEXTAREA') {
+                    if (e.key === 'Tab' && !e.shiftKey) {
+                        e.preventDefault();
+                        e.target.blur();
+                        this.addChildNode();
+                        return;
+                    }
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        e.target.blur();
+                        this.addSiblingNode();
+                        return;
+                    }
+                    // Ctrl+S anche durante la scrittura
+                    if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+                        e.preventDefault();
+                        this.saveToFile();
+                    }
+                    return;
+                }
+
+                switch (e.key) {
+                    case 'Tab':
+                        e.preventDefault();
+                        this.addChildNode();
+                        break;
+                    case 'Enter':
+                        e.preventDefault();
+                        this.addSiblingNode();
+                        break;
+                    case 'Delete':
+                    case 'Backspace':
+                        e.preventDefault();
+                        this.deleteNode();
+                        break;
+                    case 'n':
+                    case 'N':
+                        if (e.ctrlKey || e.metaKey) {
+                            e.preventDefault();
+                            this.newMap();
+                        }
+                        break;
+                    case 's':
+                    case 'S':
+						if (e.ctrlKey || e.metaKey) {
+							e.preventDefault();
+							this.saveToFile(); 
+						}
+						break;
+                    case 'z':
+                    case 'Z':
+                        if (e.ctrlKey || e.metaKey) {
+                            e.preventDefault();
+                            this.undo();
+                        }
+                        break;
+                    case '+':
+                    case '=':
+                        e.preventDefault();
+                        this.zoom(0.2);
+                        break;
+                    case '-':
+                        e.preventDefault();
+                        this.zoom(-0.2);
+                        break;
+                    case '0':
+                        e.preventDefault();
+                        this.resetZoom();
+                        break;
+                    case 'ArrowUp':
+                        e.preventDefault();
+                        this.navigateNodes('up');
+                        break;
+                    case 'ArrowDown':
+                        e.preventDefault();
+                        this.navigateNodes('down');
+                        break;
+                    case 'ArrowLeft':
+                        e.preventDefault();
+                        this.navigateNodes('left');
+                        break;
+                    case 'ArrowRight':
+                        e.preventDefault();
+                        this.navigateNodes('right');
+                        break;
+                }
+            }
+
+            createRootNode() {
+                const root = {
+                    id: this.nodeIdCounter++,
+                    text: 'Idea Centrale',
+                    x: window.innerWidth / 2 - 100,
+                    y: window.innerHeight / 2 - 50,
+                    width: 200,
+                    height: 60,
+                    color: '#3498db',
+                    isRoot: true,
+                    parentId: null,
+                    childrenCount: 0,
+                    icons: []
+                };
+                this.nodes.push(root);
+                this.selectedNode = root;
+            }
+
+            addChildNode() {
+                if (!this.selectedNode) return;
+                this.saveState();
+
+                const parent = this.selectedNode;
+                const count = parent.childrenCount || 0;
+                const angle = count * 45 - 90;
+                const distance = 200;
+                const radians = angle * Math.PI / 180;
+
+                const child = {
+                    id: this.nodeIdCounter++,
+                    text: 'Nuovo Nodo',
+                    x: parent.x + Math.cos(radians) * distance,
+                    y: parent.y + Math.sin(radians) * distance + 100,
+                    width: 150,
+                    height: 50,
+                    color: this.currentColor,
+                    isRoot: false,
+                    parentId: parent.id,
+                    childrenCount: 0,
+                    icons: []
+                };
+
+                parent.childrenCount = count + 1;
+                this.nodes.push(child);
+                this.connections.push({ from: parent.id, to: child.id, color: this.currentColor });
+                this.selectedNode = child;
+                this.render();
+                this.focusNode(child);
+                this.saveToStorage();
+            }
+
+            addSiblingNode() {
+                if (!this.selectedNode || this.selectedNode.isRoot) return;
+                this.saveState();
+
+                const sibling = this.selectedNode;
+                const parent = this.nodes.find(n => n.id === sibling.parentId);
+                if (!parent) return;
+
+                const newSibling = {
+                    id: this.nodeIdCounter++,
+                    text: 'Nuovo Nodo',
+                    x: sibling.x,
+                    y: sibling.y + 80,
+                    width: 150,
+                    height: 50,
+                    color: sibling.color,
+                    isRoot: false,
+                    parentId: sibling.parentId,
+                    childrenCount: 0,
+                    icons: []
+                };
+
+                parent.childrenCount = (parent.childrenCount || 0) + 1;
+                this.nodes.push(newSibling);
+                this.connections.push({ from: parent.id, to: newSibling.id, color: sibling.color });
+                this.selectedNode = newSibling;
+                this.render();
+                this.focusNode(newSibling);
+                this.saveToStorage();
+            }
+
+            deleteNode() {
+                if (!this.selectedNode || this.selectedNode.isRoot) return;
+                this.saveState();
+
+                const idToDelete = this.selectedNode.id;
+                const parentId = this.selectedNode.parentId; // salvato PRIMA del filtro
+
+                const descendants = this.getDescendants(idToDelete);
+                const idsToDelete = [idToDelete, ...descendants.map(n => n.id)];
+
+                                this.nodes = this.nodes.filter(n => !idsToDelete.includes(n.id));
+                this.connections = this.connections.filter(c =>
+                    !idsToDelete.includes(c.from) && !idsToDelete.includes(c.to)
+                );
+
+                const parent = this.nodes.find(n => n.id === parentId);
+                this.selectedNode = parent || this.nodes.find(n => n.isRoot) || null;
+
+                this.render();
+                this.saveToStorage();
+            }
+
+            getDescendants(nodeId) {
+                const children = this.nodes.filter(n => n.parentId === nodeId);
+                let descendants = [...children];
+                children.forEach(child => {
+                    descendants = [...descendants, ...this.getDescendants(child.id)];
+                });
+                return descendants;
+            }
+
+            saveState() {
+                if (this.undoStack.length >= 10) {
+                    this.undoStack.shift();
+                }
+                this.undoStack.push(JSON.stringify({
+                    nodes: this.nodes,
+                    connections: this.connections,
+                    nodeIdCounter: this.nodeIdCounter
+                }));
+            }
+
+            undo() {
+                if (this.undoStack.length === 0) return;
+
+                const state = JSON.parse(this.undoStack.pop());
+                this.nodes = state.nodes;
+                this.connections = state.connections;
+                this.nodeIdCounter = state.nodeIdCounter;
+                this.selectedNode = this.nodes.find(n => n.isRoot) || null;
+                this.render();
+                this.saveToStorage();
+            }
+
+            navigateNodes(direction) {
+                if (!this.selectedNode) return;
+
+                const current = this.selectedNode;
+                let next = null;
+
+                switch (direction) {
+                    case 'up':
+                        next = this.nodes.find(n => n.id === current.parentId) ||
+                            this.nodes.filter(n => n.y < current.y && n.id !== current.id)
+                                .sort((a, b) => b.y - a.y)[0];
+                        break;
+                    case 'down': {
+                        const children = this.nodes.filter(n => n.parentId === current.id);
+                        if (children.length > 0) {
+                            next = children[0];
+                        } else {
+                            next = this.nodes.filter(n => n.y > current.y && n.id !== current.id)
+                                .sort((a, b) => a.y - b.y)[0];
+                        }
+                        break;
+                    }
+                    case 'left':
+                        next = this.nodes.filter(n => n.x < current.x && n.id !== current.id)
+                            .sort((a, b) => b.x - a.x)[0];
+                        break;
+                    case 'right':
+                        next = this.nodes.filter(n => n.x > current.x && n.id !== current.id)
+                            .sort((a, b) => a.x - b.x)[0];
+                        break;
+                }
+
+                if (next) {
+                    this.selectedNode = next;
+                    this.render();
+                    this.focusNode(next);
+                }
+            }
+
+            focusNode(node) {
+                // Attende il render prima di dare il focus
+                requestAnimationFrame(() => {
+                    const textarea = document.querySelector(`[data-node-id="${node.id}"] textarea`);
+                    if (textarea) {
+                        textarea.focus();
+                        textarea.select();
+                    }
+                });
+            }
+			
+			autoResizeTextarea(textarea) {
+				// Resetta l'altezza per calcolare correttamente lo scrollHeight
+				textarea.style.height = 'auto';
+				textarea.style.height = textarea.scrollHeight + 'px';
+			}
+
+            startPan(e) {
+                // Non fare pan se si clicca su un nodo o si sta trascinando
+                if (this.isDragging || e.target.closest('.node')) return;
+                this.isPanning = true;
+                this.panStartX = e.clientX - this.panX;
+                this.panStartY = e.clientY - this.panY;
+                document.getElementById('canvas-container').style.cursor = 'grabbing';
+            }
+
+            doPan(e) {
+                if (!this.isPanning) return;
+                e.preventDefault();
+                this.panX = e.clientX - this.panStartX;
+                this.panY = e.clientY - this.panStartY;
+                this.updateTransform();
+            }
+
+            endPan() {
+                this.isPanning = false;
+                document.getElementById('canvas-container').style.cursor = 'default';
+            }
+
+            handleTouchStart(e) {
+                if (this.isDragging || e.target.closest('.node')) return;
+                if (e.touches.length === 1) {
+                    const touch = e.touches[0];
+                    this.isPanning = true;
+                    this.panStartX = touch.clientX - this.panX;
+                    this.panStartY = touch.clientY - this.panY;
+                }
+            }
+
+            handleTouchMove(e) {
+                if (!this.isPanning || e.touches.length !== 1) return;
+                e.preventDefault();
+                const touch = e.touches[0];
+                this.panX = touch.clientX - this.panStartX;
+                this.panY = touch.clientY - this.panStartY;
+                this.updateTransform();
+            }
+
+            zoom(delta) {
+                this.scale = Math.max(0.3, Math.min(3, this.scale + delta));
+                this.updateTransform();
+            }
+
+            resetZoom() {
+                this.scale = 1;
+                this.panX = 0;
+                this.panY = 0;
+                this.updateTransform();
+            }
+
+            centerMap() {
+                const root = this.nodes.find(n => n.isRoot);
+                if (root) {
+                    this.panX = (window.innerWidth / 2) - (root.x * this.scale) - (root.width * this.scale / 2);
+                    this.panY = ((window.innerHeight - 60) / 2) - (root.y * this.scale) - (root.height * this.scale / 2);
+                    this.updateTransform();
+                }
+            }
+
+            updateTransform() {
+                const transform = `translate(${this.panX}px, ${this.panY}px) scale(${this.scale})`;
+                this.canvas.style.transform = transform;
+                this.svg.style.transform = transform;
+            }
+
+			render() {
+				this.canvas.innerHTML = '';
+				this.nodes.forEach(node => {
+					const nodeEl = this.createNodeElement(node);
+					this.canvas.appendChild(nodeEl);
+				});
+
+				// Ridimensiona textarea e aggiorna dimensioni reali
+				requestAnimationFrame(() => {
+					this.nodes.forEach(node => {
+						const el = this.canvas.querySelector(`[data-node-id="${node.id}"]`);
+						if (el) {
+							const ta = el.querySelector('textarea');
+							if (ta) this.autoResizeTextarea(ta);
+							node.width = el.offsetWidth;
+							node.height = el.offsetHeight;
+						}
+					});
+					this.renderConnections();
+				});
+			}
+
+			createNodeElement(node) {
+				const div = document.createElement('div');
+				div.className = `node${node.isRoot ? ' root' : ''}${this.selectedNode && this.selectedNode.id === node.id ? ' focused' : ''}`;
+				div.dataset.nodeId = node.id;
+				div.style.left = `${node.x}px`;
+				div.style.top = `${node.y}px`;
+				div.style.borderColor = node.color;
+				if (!node.isRoot) {
+					div.style.background = this.hexToSoft(node.color, 0.85);
+					//div.style.color = node.color;
+				}
+				div.tabIndex = 0;
+				div.setAttribute('role', 'button');
+				div.setAttribute('aria-label', `Nodo: ${node.text}`);
+
+				// Seleziona nodo al click SENZA re-render completo (così la textarea non perde il focus)
+				div.addEventListener('click', (e) => {
+					e.stopPropagation();
+					this.selectNode(node);
+				});
+
+				// Drag SOLO dal bordo del nodo, non dalla textarea
+				div.addEventListener('mousedown', (e) => this.startDrag(e, node));
+
+				// Textarea per il contenuto
+				const textarea = document.createElement('textarea');
+				textarea.value = node.text;
+				//textarea.rows = Math.max(1, node.text.split('\n').length);
+				textarea.setAttribute('aria-label', 'Testo del nodo');
+
+				textarea.addEventListener('mousedown', (e) => {
+					e.stopPropagation();
+				});
+
+				textarea.addEventListener('input', (e) => {
+					node.text = e.target.value;
+					this.autoResizeTextarea(e.target);     // adatta l'altezza
+					div.setAttribute('aria-label', `Nodo: ${node.text}`);
+					// Aggiorna le dimensioni reali del nodo e le connessioni
+					node.width = div.offsetWidth;
+					node.height = div.offsetHeight;
+					this.renderConnections();
+					this.saveToStorage();
+				});
+
+				textarea.addEventListener('focus', () => {
+					this.selectNode(node, false); // non ridisegnare, aggiorna solo lo stato
+				});
+
+				div.appendChild(textarea);
+				
+				requestAnimationFrame(() => {
+					this.autoResizeTextarea(textarea);
+					node.width = div.offsetWidth;
+					node.height = div.offsetHeight;
+					this.renderConnections();
+				});
+				
+
+				// Icone
+				if (node.icons && node.icons.length > 0) {
+					const iconsDiv = document.createElement('div');
+					iconsDiv.className = 'node-icons';
+					node.icons.forEach(icon => {
+						const iconSpan = document.createElement('span');
+						iconSpan.textContent = icon;
+						iconSpan.style.fontSize = '1.2em';
+						iconsDiv.appendChild(iconSpan);
+					});
+					div.appendChild(iconsDiv);
+				}
+
+				return div;
+			}
+			
+			selectNode(node, refocus = true) {
+				this.selectedNode = node;
+				// Aggiorna solo la classe .focused senza ricreare i nodi
+				this.canvas.querySelectorAll('.node').forEach(el => {
+					if (el.dataset.nodeId == node.id) {
+						el.classList.add('focused');
+					} else {
+						el.classList.remove('focused');
+					}
+				});
+				// Aggiorna il colore attivo nella toolbar in base al nodo selezionato
+				if (!node.isRoot) {
+					document.querySelectorAll('.color-btn').forEach(b => {
+						b.classList.toggle('active', b.dataset.color === node.color);
+					});
+				}
+			}
+			
+
+			startDrag(e, node) {
+				// Non trascinare se si clicca sulla textarea
+				if (e.target.tagName === 'TEXTAREA') return;
+				e.stopPropagation();
+				this.isDragging = true;
+
+				const startX = e.clientX;
+				const startY = e.clientY;
+				const nodeStartX = node.x;
+				const nodeStartY = node.y;
+				let moved = false;
+
+				const handleMouseMove = (ev) => {
+					const dx = (ev.clientX - startX) / this.scale;
+					const dy = (ev.clientY - startY) / this.scale;
+					if (Math.abs(dx) > 2 || Math.abs(dy) > 2) moved = true;
+					node.x = nodeStartX + dx;
+					node.y = nodeStartY + dy;
+					const el = this.canvas.querySelector(`[data-node-id="${node.id}"]`);
+					if (el) {
+						el.style.left = `${node.x}px`;
+						el.style.top = `${node.y}px`;
+					}
+					this.renderConnections();
+				};
+
+				const handleMouseUp = () => {
+					document.removeEventListener('mousemove', handleMouseMove);
+					document.removeEventListener('mouseup', handleMouseUp);
+					this.isDragging = false;
+					if (moved) this.saveToStorage();
+				};
+
+				document.addEventListener('mousemove', handleMouseMove);
+				document.addEventListener('mouseup', handleMouseUp);
+			}
+
+            renderConnections() {
+                this.svg.innerHTML = '';
+
+                this.connections.forEach(conn => {
+                    const fromNode = this.nodes.find(n => n.id === conn.from);
+                    const toNode = this.nodes.find(n => n.id === conn.to);
+                    if (!fromNode || !toNode) return;
+
+                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    const startX = fromNode.x + fromNode.width / 2;
+                    const startY = fromNode.y + fromNode.height / 2;
+                    const endX = toNode.x + toNode.width / 2;
+                    const endY = toNode.y + toNode.height / 2;
+
+                    const controlX1 = startX + (endX - startX) / 2;
+                    const controlY1 = startY;
+                    const controlX2 = startX + (endX - startX) / 2;
+                    const controlY2 = endY;
+
+                    const d = `M ${startX} ${startY} C ${controlX1} ${controlY1}, ${controlX2} ${controlY2}, ${endX} ${endY}`;
+
+                    path.setAttribute('d', d);
+                    path.setAttribute('class', 'connection-line');
+                    path.setAttribute('stroke', conn.color || '#333');
+
+                    this.svg.appendChild(path);
+                });
+            }
+
+			saveToStorage() {
+				const data = {
+					nodes: this.nodes,
+					connections: this.connections,
+					nodeIdCounter: this.nodeIdCounter
+				};
+				try {
+					localStorage.setItem('mindmap-data', JSON.stringify(data));
+				} catch (err) {
+					console.error('Errore nel salvataggio automatico:', err);
+				}
+			}
+
+            loadFromStorage() {
+                const data = localStorage.getItem('mindmap-data');
+                if (data) {
+                    try {
+                        const parsed = JSON.parse(data);
+                        this.nodes = parsed.nodes || [];
+                        this.connections = parsed.connections || [];
+                        this.nodeIdCounter = parsed.nodeIdCounter || 0;
+                        this.selectedNode = this.nodes.find(n => n.isRoot) || this.nodes[0] || null;
+                    } catch (err) {
+                        console.error('Errore nel caricamento:', err);
+                        this.nodes = [];
+                        this.connections = [];
+                    }
+                }
+            }
+
+            newMap() {
+                if (confirm('Sei sicuro di voler creare una nuova mappa? La mappa corrente verrà sostituita.')) {
+                    this.nodes = [];
+                    this.connections = [];
+                    this.undoStack = [];
+                    this.nodeIdCounter = 0;
+                    this.scale = 1;
+                    this.panX = 0;
+                    this.panY = 0;
+                    this.createRootNode();
+                    this.updateTransform();
+                    this.render();
+                    localStorage.removeItem('mindmap-data');
+                }
+            }
+
+            showSaveNotification() {
+                const notification = document.getElementById('save-notification');
+                notification.classList.add('visible');
+                clearTimeout(this._notifTimeout);
+                this._notifTimeout = setTimeout(() => {
+                    notification.classList.remove('visible');
+                }, 2000);
+            }
+			
+			wrapText(ctx, text, maxWidth) {
+				const result = [];
+				// Rispetta prima gli a capo manuali
+				const paragraphs = text.split('\n');
+
+				paragraphs.forEach(paragraph => {
+					const words = paragraph.split(' ');
+					let currentLine = '';
+
+					words.forEach(word => {
+						const testLine = currentLine ? currentLine + ' ' + word : word;
+						if (ctx.measureText(testLine).width > maxWidth && currentLine) {
+							result.push(currentLine);
+							currentLine = word;
+						} else {
+							currentLine = testLine;
+						}
+					});
+					result.push(currentLine);
+				});
+
+				return result;
+			}
+
+            exportAsImage() {
+				if (this.nodes.length === 0) {
+					alert('Non c\'è nulla da esportare.');
+					return;
+				}
+
+				// 1. SINCRONIZZA le dimensioni reali dal DOM prima di esportare
+				this.nodes.forEach(node => {
+					const el = this.canvas.querySelector(`[data-node-id="${node.id}"]`);
+					if (el) {
+						node.width = el.offsetWidth;
+						node.height = el.offsetHeight;
+					}
+				});
+
+				const canvas = document.createElement('canvas');
+				const ctx = canvas.getContext('2d');
+
+				const minX = Math.min(...this.nodes.map(n => n.x));
+				const minY = Math.min(...this.nodes.map(n => n.y));
+				const maxX = Math.max(...this.nodes.map(n => n.x + n.width));
+				const maxY = Math.max(...this.nodes.map(n => n.y + n.height));
+
+				const padding = 50;
+				const scaleFactor = 2;
+				canvas.width = (maxX - minX + padding * 2) * scaleFactor;
+				canvas.height = (maxY - minY + padding * 2) * scaleFactor;
+
+				ctx.fillStyle = '#ffffff';
+				ctx.fillRect(0, 0, canvas.width, canvas.height);
+				ctx.scale(scaleFactor, scaleFactor);
+				ctx.translate(padding - minX, padding - minY);
+
+				// Connessioni
+				ctx.lineWidth = 3;
+				this.connections.forEach(conn => {
+					const fromNode = this.nodes.find(n => n.id === conn.from);
+					const toNode = this.nodes.find(n => n.id === conn.to);
+					if (!fromNode || !toNode) return;
+					const startX = fromNode.x + fromNode.width / 2;
+					const startY = fromNode.y + fromNode.height / 2;
+					const endX = toNode.x + toNode.width / 2;
+					const endY = toNode.y + toNode.height / 2;
+					ctx.strokeStyle = conn.color || '#333';
+					ctx.beginPath();
+					ctx.moveTo(startX, startY);
+					ctx.bezierCurveTo(
+						startX + (endX - startX) / 2, startY,
+						startX + (endX - startX) / 2, endY,
+						endX, endY
+					);
+					ctx.stroke();
+				});
+
+				// Nodi
+				this.nodes.forEach(node => {
+					ctx.fillStyle = node.isRoot ? node.color : this.hexToSoft(node.color, 0.85);
+					ctx.strokeStyle = node.color;
+					ctx.lineWidth = 3;
+
+					const r = 10;
+					const { x, y, width: w, height: h } = node;
+
+					// Rettangolo arrotondato
+					ctx.beginPath();
+					ctx.moveTo(x + r, y);
+					ctx.lineTo(x + w - r, y);
+					ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+					ctx.lineTo(x + w, y + h - r);
+					ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+					ctx.lineTo(x + r, y + h);
+					ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+					ctx.lineTo(x, y + r);
+					ctx.quadraticCurveTo(x, y, x + r, y);
+					ctx.closePath();
+					ctx.fill();
+					ctx.stroke();
+
+					// Testo CON WORD-WRAP all'interno del box
+					ctx.fillStyle = node.isRoot ? '#ffffff' : '#1a1a1a';
+					const fontSize = node.isRoot ? 18 : 16;
+					ctx.font = `${node.isRoot ? 'bold ' : ''}${fontSize}px Verdana, Arial, sans-serif`;
+					ctx.textAlign = 'center';
+					ctx.textBaseline = 'middle';
+
+					const padX = 18; // stesso padding del CSS
+					const maxTextWidth = w - padX * 2;
+					const lineHeight = fontSize * 1.5;
+
+					// Spezza il testo in righe che entrano nel box
+					const lines = this.wrapText(ctx, node.text || '', maxTextWidth);
+
+					const totalHeight = lines.length * lineHeight;
+					const startY = y + h / 2 - totalHeight / 2 + lineHeight / 2;
+
+					lines.forEach((line, i) => {
+						ctx.fillText(line, x + w / 2, startY + i * lineHeight);
+					});
+				});
+
+				const link = document.createElement('a');
+				link.download = 'mappa-mentale.png';
+				link.href = canvas.toDataURL('image/png');
+				link.click();
+			}
+			
+			
+			saveToFile() {
+				const data = {
+					version: '1.0',
+					app: 'SimpliMap Edu',
+					savedAt: new Date().toISOString(),
+					nodes: this.nodes,
+					connections: this.connections,
+					nodeIdCounter: this.nodeIdCounter
+				};
+
+				const json = JSON.stringify(data, null, 2); // indentato = leggibile
+				const blob = new Blob([json], { type: 'application/json' });
+				const url = URL.createObjectURL(blob);
+
+				const link = document.createElement('a');
+				link.href = url;
+				link.download = 'mappa-mentale.simplimap'; // o .json
+				link.click();
+
+				URL.revokeObjectURL(url); // libera la memoria
+				this.showSaveNotification();
+			}
+			
+			
+			
+			loadFromFile(file) {
+				const reader = new FileReader();
+				reader.onload = (e) => {
+					try {
+						const data = JSON.parse(e.target.result);
+
+						// Validazione minima
+						if (!data.nodes || !Array.isArray(data.nodes)) {
+							alert('File non valido: struttura non riconosciuta.');
+							return;
+						}
+
+						this.saveState(); // permette l'undo
+						this.nodes = data.nodes;
+						this.connections = data.connections || [];
+						this.nodeIdCounter = data.nodeIdCounter ||
+							(Math.max(0, ...this.nodes.map(n => n.id)) + 1);
+						this.selectedNode = this.nodes.find(n => n.isRoot) || this.nodes[0] || null;
+
+						this.resetZoom();
+						this.render();
+						this.centerMap();
+						this.saveToStorage();
+					} catch (err) {
+						console.error('Errore nel caricamento del file:', err);
+						alert('Impossibile aprire il file: formato non valido.');
+					}
+				};
+				reader.readAsText(file);
+			}
+			
+			
+			startAutoSave(intervalMs = 30000) { 
+				// Evita salvataggi inutili se nulla è cambiato
+				this._lastSavedSnapshot = '';
+				this._autoSaveTimer = setInterval(() => {
+					const snapshot = JSON.stringify({
+						nodes: this.nodes,
+						connections: this.connections,
+						nodeIdCounter: this.nodeIdCounter
+					});
+					if (snapshot !== this._lastSavedSnapshot) {
+						localStorage.setItem('mindmap-data', snapshot);
+						this._lastSavedSnapshot = snapshot;
+						console.log('💾 Autosave eseguito', new Date().toLocaleTimeString());
+					}
+				}, intervalMs);
+			}
+			
+			
+			// Converte un colore HEX in una versione tenue (mescolata con bianco)
+			// Produce un colore PASTELLO OPACO (non trasparente)
+			hexToSoft(hex, ratio = 0.85) {
+				hex = hex.replace('#', '');
+				if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+				const r = parseInt(hex.substring(0, 2), 16);
+				const g = parseInt(hex.substring(2, 4), 16);
+				const b = parseInt(hex.substring(4, 6), 16);
+				const mix = (c) => Math.round(c + (255 - c) * ratio); // ratio alto = più chiaro
+				return `rgb(${mix(r)}, ${mix(g)}, ${mix(b)})`;
+			}
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+        }
+
+        // Inizializza l'applicazione
+        document.addEventListener('DOMContentLoaded', () => {
+            window.mindMap = new MindMap();
+        });
+    </script>
+</body>
+</html>

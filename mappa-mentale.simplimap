@@ -1,0 +1,185 @@
+{
+  "version": "1.0",
+  "app": "SimpliMap Edu",
+  "savedAt": "2026-10-04T16:49:12.866Z",
+  "nodes": [
+    {
+      "id": 0,
+      "text": "Mari e Monti",
+      "x": -69,
+      "y": 204.5,
+      "width": 264,
+      "height": 98,
+      "color": "#3498db",
+      "isRoot": true,
+      "parentId": null,
+      "icons": [],
+      "childrenCount": 6
+    },
+    {
+      "id": 8,
+      "text": "Questo è un secondo nodo",
+      "x": 338.1713562373095,
+      "y": 279.0786437626905,
+      "width": 202,
+      "height": 78,
+      "color": "#4CAF50",
+      "isRoot": false,
+      "parentId": 0,
+      "icons": [],
+      "childrenCount": 3
+    },
+    {
+      "id": 18,
+      "text": "Questo è il primo nodo",
+      "x": 285.75,
+      "y": 35.75,
+      "width": 202,
+      "height": 78,
+      "color": "#FF9800",
+      "isRoot": false,
+      "parentId": 0,
+      "childrenCount": 5,
+      "icons": []
+    },
+    {
+      "id": 22,
+      "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. ",
+      "x": 644.25,
+      "y": -83.5,
+      "width": 202,
+      "height": 174,
+      "color": "#E91E63",
+      "isRoot": false,
+      "parentId": 18,
+      "childrenCount": 1,
+      "icons": []
+    },
+    {
+      "id": 24,
+      "text": "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. ",
+      "x": 959,
+      "y": -82,
+      "width": 202,
+      "height": 174,
+      "color": "#9C27B0",
+      "isRoot": false,
+      "parentId": 22,
+      "childrenCount": 1,
+      "icons": []
+    },
+    {
+      "id": 25,
+      "text": "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.",
+      "x": 1338.75,
+      "y": -65.25,
+      "width": 202,
+      "height": 294,
+      "color": "#9C27B0",
+      "isRoot": false,
+      "parentId": 24,
+      "childrenCount": 1,
+      "icons": []
+    },
+    {
+      "id": 27,
+      "text": "Altro nodo",
+      "x": 116.92135623730951,
+      "y": 501.0786437626905,
+      "width": 202,
+      "height": 78,
+      "color": "#4CAF50",
+      "isRoot": false,
+      "parentId": 0,
+      "childrenCount": 1,
+      "icons": []
+    },
+    {
+      "id": 34,
+      "text": "Nuovo Nodo",
+      "x": 643.75,
+      "y": 152.75,
+      "width": 202,
+      "height": 78,
+      "color": "#FF9800",
+      "isRoot": false,
+      "parentId": 18,
+      "childrenCount": 2,
+      "icons": []
+    },
+    {
+      "id": 35,
+      "text": "Nuovo Nodo",
+      "x": 936.75,
+      "y": 169.75,
+      "width": 202,
+      "height": 78,
+      "color": "#FF9800",
+      "isRoot": false,
+      "parentId": 34,
+      "childrenCount": 0,
+      "icons": []
+    },
+    {
+      "id": 36,
+      "text": "Nuovo Nodo",
+      "x": 929.75,
+      "y": 326.75,
+      "width": 202,
+      "height": 78,
+      "color": "#FF9800",
+      "isRoot": false,
+      "parentId": 34,
+      "childrenCount": 0,
+      "icons": []
+    }
+  ],
+  "connections": [
+    {
+      "from": 0,
+      "to": 8,
+      "color": "#4CAF50"
+    },
+    {
+      "from": 0,
+      "to": 18,
+      "color": "#FF9800"
+    },
+    {
+      "from": 18,
+      "to": 22,
+      "color": "#E91E63"
+    },
+    {
+      "from": 22,
+      "to": 24,
+      "color": "#9C27B0"
+    },
+    {
+      "from": 24,
+      "to": 25,
+      "color": "#9C27B0"
+    },
+    {
+      "from": 0,
+      "to": 27,
+      "color": "#4CAF50"
+    },
+    {
+      "from": 18,
+      "to": 34,
+      "color": "#FF9800"
+    },
+    {
+      "from": 34,
+      "to": 35,
+      "color": "#FF9800"
+    },
+    {
+      "from": 34,
+      "to": 36,
+      "color": "#FF9800"
+    }
+  ],
+  "nodeIdCounter": 37
+}

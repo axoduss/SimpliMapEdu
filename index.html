@@ -427,9 +427,13 @@
 		.note-icon.has-note { filter: none; }
 		.note-icon.empty-note { opacity: 0.35; }
 		
-		
+		.node.search-match {
+			box-shadow: 0 0 0 4px #f1c40f, 0 3px 6px rgba(0,0,0,0.15);
+			border-color: #f39c12 !important;
+		}
 		
     </style>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
     <div class="toolbar" role="toolbar" aria-label="Strumenti mappa mentale">
@@ -457,7 +461,17 @@
         
 
         <button id="btn-markers" title="Aggiungi marcatori" aria-label="Aggiungi marcatori">🏷️ Marcatori</button>
-		<button id="btn-export" title="Esporta come immagine" aria-label="Esporta">📥 Esporta Immagine</button>
+		<select id="export-select" aria-label="Esporta in formato" title="Esporta mappa">
+		  <option value="">📥 Esporta...</option>
+		  <option value="png">PNG (immagine)</option>
+		  <option value="svg">SVG (vettoriale)</option>
+		  <option value="pdf">PDF</option>
+		  <option value="md">Markdown / testo</option>
+		</select>
+				
+		
+		
+		<input type="search" id="search-input" placeholder="🔍 Cerca..." aria-label="Cerca nei nodi" style="padding:10px 15px; font-size:14px; font-family:inherit; border:2px solid transparent; border-radius:5px; min-width:160px;">
 		<button id="btn-help" title="Aiuto" aria-label="Aiuto">❓ Aiuto</button>
 
 
@@ -568,8 +582,19 @@
                 document.getElementById('btn-new').addEventListener('click', () => this.newMap());
                 document.getElementById('btn-add-child').addEventListener('click', () => this.addChildNode());
                 document.getElementById('btn-add-sibling').addEventListener('click', () => this.addSiblingNode());
-                document.getElementById('btn-delete').addEventListener('click', () => this.deleteNode());
-                document.getElementById('btn-export').addEventListener('click', () => this.exportAsImage());
+                document.getElementById('btn-delete').addEventListener('click', () => this.deleteNode());			
+				
+				document.getElementById('export-select').addEventListener('change', (e) => {
+				  switch (e.target.value) {
+					case 'png': this.exportAsImage(); break;
+					case 'svg': this.exportAsSVG(); break;
+					case 'pdf': this.exportAsPDF(); break;
+					case 'md':  this.exportAsMarkdown(); break;
+				  }
+				  e.target.value = ''; // reset del menu dopo la scelta
+				});
+				
+				
                 document.getElementById('btn-help').addEventListener('click', () => {
                     document.getElementById('help-panel').classList.toggle('visible');
                 });
@@ -596,6 +621,11 @@
 				});
 				document.getElementById('note-close').addEventListener('click', () => {
 					document.getElementById('note-panel').classList.remove('visible');
+				});
+				
+				// Ricerca testuale
+				document.getElementById('search-input').addEventListener('input', (e) => {
+					this.searchNodes(e.target.value);
 				});
 				
 				
@@ -1014,6 +1044,51 @@
 			}
 			
 			
+			searchNodes(query) {
+				const term = query.trim().toLowerCase();
+
+				// Rimuovi evidenziazioni precedenti
+				this.canvas.querySelectorAll('.node.search-match')
+					.forEach(el => el.classList.remove('search-match'));
+
+				if (!term) return;
+
+				const matches = this.nodes.filter(n => {
+					const inText = (n.text || '').toLowerCase().includes(term);
+					const inNote = (n.note || '').toLowerCase().includes(term);
+					return inText || inNote;
+				});
+
+				if (matches.length === 0) return;
+
+				// Se il primo risultato è dentro un ramo collassato, espandi gli antenati
+				let needRender = false;
+				matches.forEach(match => {
+					let parent = this.nodes.find(n => n.id === match.parentId);
+					while (parent) {
+						if (parent.collapsed) { parent.collapsed = false; needRender = true; }
+						parent = this.nodes.find(n => n.id === parent.parentId);
+					}
+				});
+				if (needRender) this.render();
+
+				// Evidenzia tutti i risultati
+				matches.forEach(match => {
+					const el = this.canvas.querySelector(`[data-node-id="${match.id}"]`);
+					if (el) el.classList.add('search-match');
+				});
+
+				// Centra la mappa sul primo risultato
+				this.centerOnNode(matches[0]);
+			}
+
+			centerOnNode(node) {
+				this.panX = (window.innerWidth / 2) - (node.x * this.scale) - (node.width * this.scale / 2);
+				this.panY = ((window.innerHeight - 60) / 2) - (node.y * this.scale) - (node.height * this.scale / 2);
+				this.updateTransform();
+			}
+			
+			
 			
 			autoResizeTextarea(textarea) {
 				// Resetta l'altezza per calcolare correttamente lo scrollHeight
@@ -1389,7 +1464,7 @@
 				return result;
 			}
 
-            exportAsImage() {
+            buildCanvasDataURL() {
 				if (this.nodes.length === 0) {
 					alert('Non c\'è nulla da esportare.');
 					return;
@@ -1489,11 +1564,112 @@
 					});
 				});
 
-				const link = document.createElement('a');
-				link.download = 'mappa-mentale.png';
-				link.href = canvas.toDataURL('image/png');
-				link.click();
+				return canvas.toDataURL('image/png');
 			}
+			
+			exportAsImage() {
+			  if (this.nodes.length === 0) { alert('Non c\'è nulla da esportare.'); return; }
+			  const link = document.createElement('a');
+			  link.download = 'mappa-mentale.png';
+			  link.href = this.buildCanvasDataURL();
+			  link.click();
+			  this.showSaveNotification();
+			}
+			
+			
+			
+			exportAsMarkdown() {
+			  if (this.nodes.length === 0) { alert('Non c\'è nulla da esportare.'); return; }
+			  const root = this.nodes.find(n => n.isRoot) || this.nodes[0];
+
+			  const buildMarkdown = (node, depth) => {
+				let line = depth === 0 ? `# ${node.text}` : `${'  '.repeat(depth - 1)}- ${node.text}`;
+				if (node.icons && node.icons.length) line += ` ${node.icons.join(' ')}`;
+				line += '\n';
+				if (node.note) line += `${'  '.repeat(depth)}> ${node.note.replace(/\n/g, ' ')}\n`;
+				const children = this.nodes.filter(n => n.parentId === node.id);
+				children.forEach(child => { line += buildMarkdown(child, depth + 1); });
+				return line;
+			  };
+
+			  const md = buildMarkdown(root, 0);
+			  this.downloadBlob(md, 'mappa-mentale.md', 'text/markdown');
+			}
+			
+			exportAsSVG() {
+			  if (this.nodes.length === 0) { alert('Non c\'è nulla da esportare.'); return; }
+			  // Sincronizza le dimensioni reali dal DOM (come fai in exportAsImage)
+			  this.nodes.forEach(node => {
+				const el = this.canvas.querySelector(`[data-node-id="${node.id}"]`);
+				if (el) { node.width = el.offsetWidth; node.height = el.offsetHeight; }
+			  });
+
+			  const minX = Math.min(...this.nodes.map(n => n.x)) - 50;
+			  const minY = Math.min(...this.nodes.map(n => n.y)) - 50;
+			  const maxX = Math.max(...this.nodes.map(n => n.x + n.width)) + 50;
+			  const maxY = Math.max(...this.nodes.map(n => n.y + n.height)) + 50;
+			  const w = maxX - minX, h = maxY - minY;
+
+			  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${minX} ${minY} ${w} ${h}">`;
+			  svg += `<rect x="${minX}" y="${minY}" width="${w}" height="${h}" fill="#ffffff"/>`;
+
+			  // Connessioni (stessa curva di Bézier di renderConnections)
+			  this.connections.forEach(conn => {
+				const f = this.nodes.find(n => n.id === conn.from);
+				const t = this.nodes.find(n => n.id === conn.to);
+				if (!f || !t) return;
+				const sx = f.x + f.width/2, sy = f.y + f.height/2;
+				const ex = t.x + t.width/2, ey = t.y + t.height/2;
+				const cx = sx + (ex - sx)/2;
+				svg += `<path d="M ${sx} ${sy} C ${cx} ${sy}, ${cx} ${ey}, ${ex} ${ey}" stroke="${conn.color||'#333'}" stroke-width="3" fill="none"/>`;
+			  });
+
+			  // Nodi
+			  this.nodes.forEach(node => {
+				const fill = node.isRoot ? node.color : this.hexToSoft(node.color, 0.85);
+				const textColor = node.isRoot ? '#ffffff' : '#1a1a1a';
+				svg += `<rect x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" rx="10" fill="${fill}" stroke="${node.color}" stroke-width="3"/>`;
+				svg += `<text x="${node.x + node.width/2}" y="${node.y + node.height/2}" fill="${textColor}" font-family="Verdana, Arial" font-size="${node.isRoot?18:16}" ${node.isRoot?'font-weight="bold"':''} text-anchor="middle" dominant-baseline="middle">${this.escapeXml(node.text)}</text>`;
+			  });
+
+			  svg += `</svg>`;
+			  this.downloadBlob(svg, 'mappa-mentale.svg', 'image/svg+xml');
+			}
+
+			escapeXml(str) {
+			  return (str||'').replace(/[<>&'"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'}[c]));
+			}
+			
+			
+			exportAsPDF() {
+			  if (this.nodes.length === 0) { alert('Non c\'è nulla da esportare.'); return; }
+			  const dataURL = this.buildCanvasDataURL();
+			  const { jsPDF } = window.jspdf;
+			  const img = new Image();
+			  img.onload = () => {
+				const orientation = img.width > img.height ? 'l' : 'p';
+				const pdf = new jsPDF({ orientation, unit: 'px', format: [img.width, img.height] });
+				pdf.addImage(dataURL, 'PNG', 0, 0, img.width, img.height);
+				pdf.save('mappa-mentale.pdf');
+				this.showSaveNotification();
+			  };
+			  img.src = dataURL;
+			}
+			
+			
+			downloadBlob(content, filename, mimeType) {
+			  const blob = new Blob([content], { type: mimeType });
+			  const url = URL.createObjectURL(blob);
+			  const link = document.createElement('a');
+			  link.href = url;
+			  link.download = filename;
+			  link.click();
+			  URL.revokeObjectURL(url);
+			  this.showSaveNotification();
+			}
+			
+			
+			
 			
 			
 			saveToFile() {

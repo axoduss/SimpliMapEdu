@@ -349,6 +349,37 @@
 		.collapse-btn:hover { background: #3498db; color: white; }
 		.collapse-btn:focus { outline: 3px solid #f39c12; outline-offset: 2px; }
 		
+		.markers-panel {
+			position: fixed;
+			top: 60px;
+			right: 20px;
+			background: white;
+			border: 3px solid #2c3e50;
+			border-radius: 10px;
+			padding: 15px;
+			box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+			z-index: 1001;
+			display: none;
+		}
+		.markers-panel.visible { display: block; }
+		.markers-grid {
+			display: grid;
+			grid-template-columns: repeat(3, 1fr);
+			gap: 8px;
+		}
+		.marker-btn {
+			width: 50px;
+			height: 50px;
+			font-size: 24px;
+			border: 2px solid #bdc3c7;
+			border-radius: 8px;
+			background: #ecf0f1;
+			cursor: pointer;
+			transition: all 0.2s;
+		}
+		.marker-btn:hover { background: #3498db; transform: scale(1.1); }
+		.marker-btn:focus { outline: 3px solid #f39c12; outline-offset: 2px; }
+		
 		
 		
     </style>
@@ -378,7 +409,8 @@
         <button id="btn-spacing" title="Spaziatura ampia" aria-label="Spaziatura ampia">↔️ Spazio</button>
         
 
-        <button id="btn-export" title="Esporta come immagine" aria-label="Esporta">📥 Esporta Immagine</button>
+        <button id="btn-markers" title="Aggiungi marcatori" aria-label="Aggiungi marcatori">🏷️ Marcatori</button>
+		<button id="btn-export" title="Esporta come immagine" aria-label="Esporta">📥 Esporta Immagine</button>
 		<button id="btn-help" title="Aiuto" aria-label="Aiuto">❓ Aiuto</button>
 
 
@@ -396,6 +428,21 @@
         <button id="btn-zoom-reset" title="Reset zoom (0)" aria-label="Reset zoom">⟲</button>
         <button id="btn-center" title="Centra mappa" aria-label="Centra">⌂</button>
     </div>
+	
+	
+	
+	<div class="markers-panel" id="markers-panel" role="dialog" aria-label="Scegli un marcatore">
+		<h3 style="margin-bottom:10px; color:#2c3e50; font-size:1.1em;">🏷️ Marcatori</h3>
+		<div class="markers-grid">
+			<button class="marker-btn" data-icon="⭐" aria-label="Stella">⭐</button>
+			<button class="marker-btn" data-icon="❗" aria-label="Importante">❗</button>
+			<button class="marker-btn" data-icon="✅" aria-label="Completato">✅</button>
+			<button class="marker-btn" data-icon="1️⃣" aria-label="Priorità 1">1️⃣</button>
+			<button class="marker-btn" data-icon="2️⃣" aria-label="Priorità 2">2️⃣</button>
+			<button class="marker-btn" data-icon="3️⃣" aria-label="Priorità 3">3️⃣</button>
+		</div>
+	</div>
+	
 
     <div class="help-panel" id="help-panel" role="dialog" aria-labelledby="help-title">
         <h3 id="help-title">⌨️ Scorciatoie da Tastiera</h3>
@@ -469,6 +516,15 @@
                 document.getElementById('btn-help').addEventListener('click', () => {
                     document.getElementById('help-panel').classList.toggle('visible');
                 });
+				// Pannello marcatori
+				document.getElementById('btn-markers').addEventListener('click', () => {
+					document.getElementById('markers-panel').classList.toggle('visible');
+				});
+				document.querySelectorAll('.marker-btn').forEach(btn => {
+					btn.addEventListener('click', () => {
+						this.toggleIcon(btn.dataset.icon);
+					});
+				});
 				
 				
 				// Salva su file
@@ -490,8 +546,6 @@
 				window.addEventListener('beforeunload', () => {
 					this.saveToStorage();
 				});
-				
-				
 				
 
                 // Accessibilità
@@ -856,6 +910,26 @@
 				this.render();
 				this.saveToStorage();
 			}
+			
+			toggleIcon(icon) {
+				if (!this.selectedNode) {
+					alert('Seleziona prima un nodo a cui aggiungere il marcatore.');
+					return;
+				}
+				this.saveState();
+				if (!this.selectedNode.icons) this.selectedNode.icons = [];
+				const index = this.selectedNode.icons.indexOf(icon);
+				if (index === -1) {
+					this.selectedNode.icons.push(icon);   // aggiunge il marcatore
+				} else {
+					this.selectedNode.icons.splice(index, 1); // lo rimuove se già presente (toggle)
+				}
+				this.render();
+				this.selectNode(this.selectedNode, false); // mantiene la selezione visiva
+				this.saveToStorage();
+			}
+			
+			
 			
 			autoResizeTextarea(textarea) {
 				// Resetta l'altezza per calcolare correttamente lo scrollHeight

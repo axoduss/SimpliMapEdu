@@ -326,6 +326,31 @@
         .save-notification.visible {
             opacity: 1;
         }
+		
+		
+		.collapse-btn {
+			position: absolute;
+			bottom: -12px;
+			left: 50%;
+			transform: translateX(-50%);
+			width: 24px;
+			height: 24px;
+			border-radius: 50%;
+			border: 2px solid #2c3e50;
+			background: white;
+			color: #2c3e50;
+			font-weight: bold;
+			font-size: 16px;
+			line-height: 1;
+			cursor: pointer;
+			padding: 0;
+			z-index: 5;
+		}
+		.collapse-btn:hover { background: #3498db; color: white; }
+		.collapse-btn:focus { outline: 3px solid #f39c12; outline-offset: 2px; }
+		
+		
+		
     </style>
 </head>
 <body>
@@ -636,7 +661,8 @@
                     isRoot: true,
                     parentId: null,
                     childrenCount: 0,
-                    icons: []
+                    icons: [],
+					collapsed: false
                 };
                 this.nodes.push(root);
                 this.selectedNode = root;
@@ -663,7 +689,8 @@
                     isRoot: false,
                     parentId: parent.id,
                     childrenCount: 0,
-                    icons: []
+                    icons: [],
+					collapsed: false
                 };
 
                 parent.childrenCount = count + 1;
@@ -694,7 +721,8 @@
                     isRoot: false,
                     parentId: sibling.parentId,
                     childrenCount: 0,
-                    icons: []
+                    icons: [],
+					collapsed: false
                 };
 
                 parent.childrenCount = (parent.childrenCount || 0) + 1;
@@ -736,6 +764,17 @@
                 });
                 return descendants;
             }
+			
+			
+			isNodeHidden(node) {
+				let current = this.nodes.find(n => n.id === node.parentId);
+				while (current) {
+					if (current.collapsed) return true;
+					current = this.nodes.find(n => n.id === current.parentId);
+				}
+				return false;
+			}
+			
 
             saveState() {
                 if (this.undoStack.length >= 10) {
@@ -760,44 +799,44 @@
                 this.saveToStorage();
             }
 
-            navigateNodes(direction) {
-                if (!this.selectedNode) return;
+			navigateNodes(direction) {
+				if (!this.selectedNode) return;
+				const current = this.selectedNode;
+				const visible = this.nodes.filter(n => !this.isNodeHidden(n));
+				let next = null;
 
-                const current = this.selectedNode;
-                let next = null;
+				switch (direction) {
+					case 'up':
+						next = visible.find(n => n.id === current.parentId) ||
+							   visible.filter(n => n.y < current.y && n.id !== current.id)
+									  .sort((a, b) => b.y - a.y)[0];
+						break;
+					case 'down': {
+						const children = visible.filter(n => n.parentId === current.id);
+						if (children.length > 0) {
+							next = children[0];
+						} else {
+							next = visible.filter(n => n.y > current.y && n.id !== current.id)
+										  .sort((a, b) => a.y - b.y)[0];
+						}
+						break;
+					}
+					case 'left':
+						next = visible.filter(n => n.x < current.x && n.id !== current.id)
+									  .sort((a, b) => b.x - a.x)[0];
+						break;
+					case 'right':
+						next = visible.filter(n => n.x > current.x && n.id !== current.id)
+									  .sort((a, b) => a.x - b.x)[0];
+						break;
+				}
 
-                switch (direction) {
-                    case 'up':
-                        next = this.nodes.find(n => n.id === current.parentId) ||
-                            this.nodes.filter(n => n.y < current.y && n.id !== current.id)
-                                .sort((a, b) => b.y - a.y)[0];
-                        break;
-                    case 'down': {
-                        const children = this.nodes.filter(n => n.parentId === current.id);
-                        if (children.length > 0) {
-                            next = children[0];
-                        } else {
-                            next = this.nodes.filter(n => n.y > current.y && n.id !== current.id)
-                                .sort((a, b) => a.y - b.y)[0];
-                        }
-                        break;
-                    }
-                    case 'left':
-                        next = this.nodes.filter(n => n.x < current.x && n.id !== current.id)
-                            .sort((a, b) => b.x - a.x)[0];
-                        break;
-                    case 'right':
-                        next = this.nodes.filter(n => n.x > current.x && n.id !== current.id)
-                            .sort((a, b) => a.x - b.x)[0];
-                        break;
-                }
-
-                if (next) {
-                    this.selectedNode = next;
-                    this.render();
-                    this.focusNode(next);
-                }
-            }
+				if (next) {
+					this.selectedNode = next;
+					this.render();
+					this.focusNode(next);
+				}
+			}
 
             focusNode(node) {
                 // Attende il render prima di dare il focus
@@ -809,6 +848,14 @@
                     }
                 });
             }
+			
+			toggleCollapse(node) {
+				if (!this.getDescendants(node.id).length) return;
+				this.saveState();
+				node.collapsed = !node.collapsed;
+				this.render();
+				this.saveToStorage();
+			}
 			
 			autoResizeTextarea(textarea) {
 				// Resetta l'altezza per calcolare correttamente lo scrollHeight
@@ -887,6 +934,7 @@
 			render() {
 				this.canvas.innerHTML = '';
 				this.nodes.forEach(node => {
+					if (this.isNodeHidden(node)) return;  
 					const nodeEl = this.createNodeElement(node);
 					this.canvas.appendChild(nodeEl);
 				});
@@ -977,6 +1025,23 @@
 					});
 					div.appendChild(iconsDiv);
 				}
+				
+				// toggle
+				if (this.getDescendants(node.id).length > 0) {
+					const toggleBtn = document.createElement('button');
+					toggleBtn.className = 'collapse-btn';
+					toggleBtn.textContent = node.collapsed ? '+' : '−';
+					toggleBtn.setAttribute('aria-label',
+						node.collapsed ? 'Espandi ramo' : 'Comprimi ramo');
+					toggleBtn.addEventListener('mousedown', (e) => e.stopPropagation()); // evita il drag
+					toggleBtn.addEventListener('click', (e) => {
+						e.stopPropagation();
+						this.toggleCollapse(node);
+					});
+					div.appendChild(toggleBtn);
+				}
+				
+				
 
 				return div;
 			}
@@ -1044,6 +1109,7 @@
                     const fromNode = this.nodes.find(n => n.id === conn.from);
                     const toNode = this.nodes.find(n => n.id === conn.to);
                     if (!fromNode || !toNode) return;
+					if (this.isNodeHidden(fromNode) || this.isNodeHidden(toNode)) return;
 
                     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                     const startX = fromNode.x + fromNode.width / 2;

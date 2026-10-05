@@ -1,28 +1,29 @@
 {
   "version": "1.0",
   "app": "SimpliMap Edu",
-  "savedAt": "2026-10-04T16:49:12.866Z",
+  "savedAt": "2026-10-04T18:37:31.719Z",
   "nodes": [
     {
       "id": 0,
-      "text": "Mari e Monti",
-      "x": -69,
-      "y": 204.5,
-      "width": 264,
-      "height": 98,
+      "text": "Oceani",
+      "x": -207.5,
+      "y": 254.66666666666663,
+      "width": 303,
+      "height": 142,
       "color": "#3498db",
       "isRoot": true,
       "parentId": null,
       "icons": [],
-      "childrenCount": 6
+      "childrenCount": 13,
+      "collapsed": false
     },
     {
       "id": 8,
-      "text": "Questo è un secondo nodo",
-      "x": 338.1713562373095,
-      "y": 279.0786437626905,
-      "width": 202,
-      "height": 78,
+      "text": "Pacifico",
+      "x": 171.8380229039762,
+      "y": 133.74531042935715,
+      "width": 232,
+      "height": 113,
       "color": "#4CAF50",
       "isRoot": false,
       "parentId": 0,
@@ -31,50 +32,53 @@
     },
     {
       "id": 18,
-      "text": "Questo è il primo nodo",
-      "x": 285.75,
-      "y": 35.75,
-      "width": 202,
-      "height": 78,
+      "text": "Atlantico",
+      "x": 164.66666666666666,
+      "y": -46.416666666666664,
+      "width": 232,
+      "height": 113,
       "color": "#FF9800",
       "isRoot": false,
       "parentId": 0,
       "childrenCount": 5,
-      "icons": []
+      "icons": [],
+      "collapsed": false
     },
     {
       "id": 22,
       "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. ",
-      "x": 644.25,
-      "y": -83.5,
-      "width": 202,
-      "height": 174,
+      "x": 593,
+      "y": -66.41666666666666,
+      "width": 232,
+      "height": 209,
       "color": "#E91E63",
       "isRoot": false,
       "parentId": 18,
       "childrenCount": 1,
-      "icons": []
+      "icons": [],
+      "collapsed": false
     },
     {
       "id": 24,
       "text": "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. ",
-      "x": 959,
-      "y": -82,
-      "width": 202,
-      "height": 174,
-      "color": "#9C27B0",
+      "x": 982.75,
+      "y": -96.25,
+      "width": 232,
+      "height": 209,
+      "color": "#E91E63",
       "isRoot": false,
       "parentId": 22,
       "childrenCount": 1,
-      "icons": []
+      "icons": [],
+      "collapsed": false
     },
     {
       "id": 25,
       "text": "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.",
-      "x": 1338.75,
-      "y": -65.25,
-      "width": 202,
-      "height": 294,
+      "x": 1345,
+      "y": -85.25,
+      "width": 232,
+      "height": 329,
       "color": "#9C27B0",
       "isRoot": false,
       "parentId": 24,
@@ -83,12 +87,12 @@
     },
     {
       "id": 27,
-      "text": "Altro nodo",
-      "x": 116.92135623730951,
-      "y": 501.0786437626905,
-      "width": 202,
-      "height": 78,
-      "color": "#4CAF50",
+      "text": "Indiano",
+      "x": 242.25468957064285,
+      "y": 297.3286437626905,
+      "width": 232,
+      "height": 113,
+      "color": "#9C27B0",
       "isRoot": false,
       "parentId": 0,
       "childrenCount": 1,
@@ -97,23 +101,24 @@
     {
       "id": 34,
       "text": "Nuovo Nodo",
-      "x": 643.75,
-      "y": 152.75,
-      "width": 202,
-      "height": 78,
+      "x": 598.75,
+      "y": 252.75,
+      "width": 232,
+      "height": 113,
       "color": "#FF9800",
       "isRoot": false,
       "parentId": 18,
       "childrenCount": 2,
-      "icons": []
+      "icons": [],
+      "collapsed": false
     },
     {
       "id": 35,
       "text": "Nuovo Nodo",
       "x": 936.75,
       "y": 169.75,
-      "width": 202,
-      "height": 78,
+      "width": 232,
+      "height": 113,
       "color": "#FF9800",
       "isRoot": false,
       "parentId": 34,
@@ -125,13 +130,105 @@
       "text": "Nuovo Nodo",
       "x": 929.75,
       "y": 326.75,
-      "width": 202,
-      "height": 78,
+      "width": 232,
+      "height": 113,
       "color": "#FF9800",
       "isRoot": false,
       "parentId": 34,
+      "childrenCount": 1,
+      "icons": [],
+      "collapsed": false,
+      "note": ""
+    },
+    {
+      "id": 37,
+      "text": "Nuovo Nodo",
+      "x": 1312.75,
+      "y": 357.75,
+      "width": 232,
+      "height": 113,
+      "color": "#FF9800",
+      "isRoot": false,
+      "parentId": 36,
       "childrenCount": 0,
-      "icons": []
+      "icons": [],
+      "collapsed": false,
+      "note": "questa è una nota"
+    },
+    {
+      "id": 39,
+      "text": "Artico",
+      "x": 190.5880229039762,
+      "y": 447.66197709602386,
+      "width": 232,
+      "height": 113,
+      "color": "#2196F3",
+      "isRoot": false,
+      "parentId": 0,
+      "childrenCount": 1,
+      "icons": [],
+      "collapsed": false,
+      "note": ""
+    },
+    {
+      "id": 42,
+      "text": "Antartico",
+      "x": -14.411977096023818,
+      "y": 599.3286437626905,
+      "width": 232,
+      "height": 113,
+      "color": "#E91E63",
+      "isRoot": false,
+      "parentId": 0,
+      "childrenCount": 2,
+      "icons": [],
+      "collapsed": false,
+      "note": ""
+    },
+    {
+      "id": 45,
+      "text": "Nuovo Nodo",
+      "x": 502.2546895706428,
+      "y": 497.66197709602386,
+      "width": 232,
+      "height": 113,
+      "color": "#2196F3",
+      "isRoot": false,
+      "parentId": 39,
+      "childrenCount": 1,
+      "icons": [],
+      "collapsed": false,
+      "note": ""
+    },
+    {
+      "id": 46,
+      "text": "Nuovo Nodo",
+      "x": 805.5880229039761,
+      "y": 530.9953104293572,
+      "width": 232,
+      "height": 113,
+      "color": "#2196F3",
+      "isRoot": false,
+      "parentId": 45,
+      "childrenCount": 0,
+      "icons": [],
+      "collapsed": false,
+      "note": ""
+    },
+    {
+      "id": 48,
+      "text": "Nuovo Nodo",
+      "x": 282.00937914128565,
+      "y": 644.5739541920476,
+      "width": 232,
+      "height": 113,
+      "color": "#E91E63",
+      "isRoot": false,
+      "parentId": 42,
+      "childrenCount": 0,
+      "icons": [],
+      "collapsed": false,
+      "note": ""
     }
   ],
   "connections": [
@@ -153,7 +250,7 @@
     {
       "from": 22,
       "to": 24,
-      "color": "#9C27B0"
+      "color": "#E91E63"
     },
     {
       "from": 24,
@@ -163,7 +260,7 @@
     {
       "from": 0,
       "to": 27,
-      "color": "#4CAF50"
+      "color": "#9C27B0"
     },
     {
       "from": 18,
@@ -179,7 +276,37 @@
       "from": 34,
       "to": 36,
       "color": "#FF9800"
+    },
+    {
+      "from": 36,
+      "to": 37,
+      "color": "#FF9800"
+    },
+    {
+      "from": 0,
+      "to": 39,
+      "color": "#2196F3"
+    },
+    {
+      "from": 0,
+      "to": 42,
+      "color": "#E91E63"
+    },
+    {
+      "from": 39,
+      "to": 45,
+      "color": "#2196F3"
+    },
+    {
+      "from": 45,
+      "to": 46,
+      "color": "#2196F3"
+    },
+    {
+      "from": 42,
+      "to": 48,
+      "color": "#E91E63"
     }
   ],
-  "nodeIdCounter": 37
+  "nodeIdCounter": 49
 }

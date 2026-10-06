@@ -32,19 +32,48 @@
             line-height: 1.6;
         }
 
-        .toolbar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            background: #2c3e50;
-            padding: 10px 20px;
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            z-index: 1000;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        }
+		.toolbar {
+			position: fixed;
+			top: 0;
+			left: 0;
+			right: 0;
+			background: #2c3e50;
+			padding: 8px 20px;
+			display: flex;
+			gap: 14px;              /* spazio tra i gruppi */
+			flex-wrap: wrap;
+			align-items: flex-start;
+			z-index: 1000;
+			box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+		}
+		
+		.tool-group {
+			display: flex;
+			flex-direction: column;     /* etichetta sopra */
+			gap: 6px;
+			padding: 6px 10px;
+			background: rgba(255, 255, 255, 0.12);  /* più visibile */
+			border-radius: 10px;
+			border: 1px solid rgba(255, 255, 255, 0.15);
+		}
+		
+		/* riga di pulsanti sotto l'etichetta */
+		.tool-group .group-row {
+			display: flex;
+			gap: 8px;
+			align-items: center;
+			flex-wrap: wrap;
+		}
+		
+		.tool-group .group-label {
+			font-size: 11px;
+			font-weight: 700;
+			text-transform: uppercase;
+			letter-spacing: 0.5px;
+			color: #ecf0f1;
+			opacity: 0.9;
+		}
+		
 
         .toolbar button, .toolbar select {
             padding: 10px 15px;
@@ -76,7 +105,7 @@
 
         #canvas-container {
             position: absolute;
-            top: 60px;
+            top: 80px;
             left: 0;
             right: 0;
             bottom: 0;
@@ -165,7 +194,7 @@
         .zoom-controls {
             position: fixed;
             bottom: 20px;
-            right: 20px;
+            left: 20px;
             display: flex;
             gap: 10px;
             z-index: 1000;
@@ -329,7 +358,6 @@
             opacity: 1;
         }
 		
-		
 		.collapse-btn {
 			position: absolute;
 			bottom: -12px;
@@ -381,9 +409,7 @@
 		}
 		.marker-btn:hover { background: #3498db; transform: scale(1.1); }
 		.marker-btn:focus { outline: 3px solid #f39c12; outline-offset: 2px; }
-		
-		
-		
+
 		.note-panel {
 			position: fixed;
 			top: 60px;
@@ -434,51 +460,123 @@
 			border-color: #f39c12 !important;
 		}
 		
+		.help-mascotte {
+			position: fixed;
+			bottom: 20px;
+			right: 20px;
+			width: 100px;
+			height: 100px;
+			font-family: inherit;
+			font-size: 28px;
+			border-radius: 50%;
+			border: 3px solid #2c3e50;
+			background: white;
+			color: #2c3e50;
+			cursor: pointer;
+			z-index: 1001;
+			box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			transition: transform 0.2s, background 0.2s;
+		}
+
+		.help-mascotte:hover {
+			background: #3498db;
+			transform: scale(1.1);
+		}
+
+		.help-mascotte:focus {
+			outline: 3px solid #f39c12;
+			outline-offset: 3px;
+		}
+
+		/* Leggera animazione di richiamo, discreta e non invadente */
+		.help-mascotte {
+			animation: mascotte-bounce 3s ease-in-out infinite;
+		}
+
+		@keyframes mascotte-bounce {
+			0%, 90%, 100% { transform: translateY(0); }
+			95%           { transform: translateY(-6px); }
+		}
+
+		/* Rispetta chi preferisce meno movimento (accessibilità / DSA / ADHD) */
+		@media (prefers-reduced-motion: reduce) {
+			.help-mascotte {
+				animation: none;
+			}
+		}
+		
+		
+		
+		
     </style>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
-    <div class="toolbar" role="toolbar" aria-label="Strumenti mappa mentale">
-        <button id="btn-new" title="Nuova mappa (Ctrl+N)" aria-label="Nuova mappa">📄 Nuova</button>
-		<button id="btn-open-file" title="Apri file" aria-label="Apri file">📂 Apri</button>
-		<button id="btn-save-file" title="Salva su file (Ctrl+Shift+S)" aria-label="Salva su file">💾 Salva</button>
-        <button id="btn-add-child" title="Aggiungi nodo figlio (Tab)" aria-label="Aggiungi nodo figlio">➕ Aggiungi Nodo</button>
-        <button id="btn-add-sibling" title="Aggiungi nodo fratello (Enter)" aria-label="Aggiungi nodo fratello">➕ Nodo accanto</button>
-        <button id="btn-delete" title="Elimina nodo (Canc)" aria-label="Elimina nodo">🗑️ Elimina</button>
-        
-        <div class="color-picker" role="group" aria-label="Colori rami">
-            <span style="color: white; font-weight: bold;">Colori:</span>
-            <button class="color-btn active" data-color="#4CAF50" style="background: #4CAF50;" aria-label="Verde"></button>
-            <button class="color-btn" data-color="#2196F3" style="background: #2196F3;" aria-label="Blu"></button>
-            <button class="color-btn" data-color="#FF9800" style="background: #FF9800;" aria-label="Arancione"></button>
-            <button class="color-btn" data-color="#E91E63" style="background: #E91E63;" aria-label="Rosa"></button>
-            <button class="color-btn" data-color="#9C27B0" style="background: #9C27B0;" aria-label="Viola"></button>
-        </div>
+	<div class="toolbar" role="toolbar" aria-label="Strumenti mappa mentale">
 
+	  <!-- GRUPPO: File -->
+	<div class="tool-group" role="group" aria-label="Gestione file">
+		<span class="group-label">File</span>
+		<div class="group-row">
+			<button id="btn-new" title="Nuova mappa (Ctrl+N)" aria-label="Nuova mappa">📄 Nuova</button>
+			<button id="btn-open-file" title="Apri file" aria-label="Apri file">📂 Apri</button>
+			<button id="btn-save-file" title="Salva su file (Ctrl+Shift+S)" aria-label="Salva su file">💾 Salva</button>
+		</div>
+	</div>
 
-        
-        <button id="btn-contrast" title="Alto contrasto" aria-label="Attiva alto contrasto">🔲 Contrasto</button>
-        <button id="btn-fontsize" title="Font grande" aria-label="Aumenta font">🔤 Font</button>
-        <button id="btn-spacing" title="Spaziatura ampia" aria-label="Spaziatura ampia">↔️ Spazio</button>
-        
+	  <!-- GRUPPO: Nodi -->
+	<div class="tool-group" role="group" aria-label="Gestione nodi">
+		<span class="group-label">Nodi</span>
+		<div class="group-row">
+			<button id="btn-add-child" title="Aggiungi nodo figlio (Tab)" aria-label="Aggiungi nodo figlio">➕ Figlio</button>
+			<button id="btn-add-sibling" title="Aggiungi nodo fratello (Enter)" aria-label="Aggiungi nodo fratello">➕ Accanto</button>
+			<button id="btn-delete" title="Elimina nodo (Canc)" aria-label="Elimina nodo">🗑️ Elimina</button>
+			<button id="btn-markers" title="Aggiungi marcatori" aria-label="Aggiungi marcatori">🏷️ Marcatori</button>
+		</div>
+	</div>
 
-        <button id="btn-markers" title="Aggiungi marcatori" aria-label="Aggiungi marcatori">🏷️ Marcatori</button>
-		<select id="export-select" aria-label="Esporta in formato" title="Esporta mappa">
-		  <option value="">📥 Esporta...</option>
-		  <option value="png">PNG (immagine)</option>
-		  <option value="svg">SVG (vettoriale)</option>
-		  <option value="pdf">PDF</option>
-		  <option value="md">Markdown / testo</option>
-		</select>
-				
-		
-		
-		<input type="search" id="search-input" placeholder="🔍 Cerca..." aria-label="Cerca nei nodi" style="padding:10px 15px; font-size:14px; font-family:inherit; border:2px solid transparent; border-radius:5px; min-width:160px;">
-		<button id="btn-help" title="Aiuto" aria-label="Aiuto">❓ Aiuto</button>
+	<!-- GRUPPO: Colori -->
+	<div class="tool-group color-picker" role="group" aria-label="Colori rami">
+		<span class="group-label">Colori</span>
+		<div class="group-row">
+			<button class="color-btn active" data-color="#4CAF50" style="background:#4CAF50;" aria-label="Verde"></button>
+			<button class="color-btn" data-color="#2196F3" style="background:#2196F3;" aria-label="Blu"></button>
+			<button class="color-btn" data-color="#FF9800" style="background:#FF9800;" aria-label="Arancione"></button>
+			<button class="color-btn" data-color="#E91E63" style="background:#E91E63;" aria-label="Rosa"></button>
+			<button class="color-btn" data-color="#9C27B0" style="background:#9C27B0;" aria-label="Viola"></button>
+		</div>
+	</div>
 
+	<!-- GRUPPO: Accessibilità -->
+	<div class="tool-group" role="group" aria-label="Accessibilità">
+		<span class="group-label">Vista</span>
+		<div class="group-row">
+			<button id="btn-contrast" title="Alto contrasto" aria-label="Attiva alto contrasto">🔲 Contrasto</button>
+			<button id="btn-fontsize" title="Font grande" aria-label="Aumenta font">🔤 Font</button>
+			<button id="btn-spacing" title="Spaziatura ampia" aria-label="Spaziatura ampia">↔️ Spazio</button>
+		</div>
+	</div>
 
-		<input type="file" id="file-input" accept=".json,.simplimap" style="display: none;" aria-hidden="true">
-    </div>
+	<!-- GRUPPO: Esporta e cerca -->
+	<div class="tool-group" role="group" aria-label="Esporta e cerca">
+		<span class="group-label">Altro</span>
+		<div class="group-row">
+			<select id="export-select" aria-label="Esporta in formato" title="Esporta mappa">
+			  <option value="">📥 Esporta...</option>
+			  <option value="png">PNG (immagine)</option>
+			  <option value="svg">SVG (vettoriale)</option>
+			  <option value="pdf">PDF</option>
+			  <option value="md">Markdown / testo</option>
+			</select>
+			<input type="search" id="search-input" placeholder="🔍 Cerca..." aria-label="Cerca nei nodi">
+		</div>
+	</div>
+
+	  <input type="file" id="file-input" accept=".json,.simplimap" style="display:none;" aria-hidden="true">
+	</div>
 
     <div id="canvas-container">
         <svg class="connections" id="connections-svg"></svg>
@@ -492,7 +590,7 @@
         <button id="btn-center" title="Centra mappa" aria-label="Centra">⌂</button>
     </div>
 	
-	
+	<button id="btn-help" title="Aiuto" class="help-mascotte" aria-label="Aiuto">❓ Aiuto</button>
 	
 	<div class="markers-panel" id="markers-panel" role="dialog" aria-label="Scegli un marcatore">
 		<h3 style="margin-bottom:10px; color:#2c3e50; font-size:1.1em;">🏷️ Marcatori</h3>

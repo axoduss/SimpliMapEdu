@@ -102,6 +102,45 @@
             background: #27ae60;
             color: white;
         }
+		
+		.toolbar input[type="search"] {
+			padding: 10px 15px;
+			font-size: 14px;
+			font-family: inherit;
+			font-weight: bold;
+			border: 2px solid transparent;
+			border-radius: 5px;
+			background: #ecf0f1;
+			color: #2c3e50;
+			min-width: 180px;
+			transition: all 0.2s;
+		}
+
+		.toolbar input[type="search"]::placeholder {
+			color: #7f8c8d;
+			font-weight: normal;
+		}
+
+		.toolbar input[type="search"]:hover {
+			background: #ffffff;
+		}
+
+		.toolbar input[type="search"]:focus {
+			outline: 3px solid #f39c12;
+			outline-offset: 2px;
+			background: #ffffff;
+		}
+
+		body.high-contrast .toolbar input[type="search"] {
+			background: #1a1a1a;
+			color: #ffffff;
+			border: 2px solid #ffffff;
+		}
+
+		body.high-contrast .toolbar input[type="search"]::placeholder {
+			color: #cccccc;
+		}
+		
 
         #canvas-container {
             position: absolute;
@@ -532,7 +571,7 @@
 		<span class="group-label">Nodi</span>
 		<div class="group-row">
 			<button id="btn-add-child" title="Aggiungi nodo figlio (Tab)" aria-label="Aggiungi nodo figlio">➕ Figlio</button>
-			<button id="btn-add-sibling" title="Aggiungi nodo fratello (Enter)" aria-label="Aggiungi nodo fratello">➕ Accanto</button>
+			<button id="btn-add-sibling" title="Aggiungi nodo fratello (Enter)" aria-label="Aggiungi nodo fratello">➕ Fratello</button>
 			<button id="btn-delete" title="Elimina nodo (Canc)" aria-label="Elimina nodo">🗑️ Elimina</button>
 			<button id="btn-markers" title="Aggiungi marcatori" aria-label="Aggiungi marcatori">🏷️ Marcatori</button>
 		</div>

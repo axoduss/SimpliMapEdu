@@ -696,6 +696,77 @@
     </div>
 
     <script>
+
+            // IndexedDB Wrapper - Gestione automatica memoria
+            const DB_NAME = 'SimpliMapDB';
+            const DB_VERSION = 1;
+            const STORE_NAME = 'current-map';
+            
+            let dbInstance = null;
+            
+            function openDB() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(DB_NAME, DB_VERSION);
+                    
+                    request.onupgradeneeded = (e) => {
+                        const db = e.target.result;
+                        if (!db.objectStoreNames.contains(STORE_NAME)) {
+                            db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                        }
+                    };
+                    
+                    request.onsuccess = (e) => {
+                        dbInstance = e.target.result;
+                        resolve(dbInstance);
+                    };
+                    
+                    request.onerror = (e) => {
+                        console.error('Errore apertura IndexedDB:', e.target.error);
+                        reject(e.target.error);
+                    };
+                });
+            }
+            
+            async function dbSave(key, data) {
+                if (!dbInstance) await openDB();
+                return new Promise((resolve, reject) => {
+                    const tx = dbInstance.transaction([STORE_NAME], 'readwrite');
+                    const store = tx.objectStore(STORE_NAME);
+                    const request = store.put({ id: key, data: data, savedAt: Date.now() });
+                    
+                    request.onsuccess = () => resolve();
+                    request.onerror = (e) => reject(e.target.error);
+                });
+            }
+            
+            async function dbLoad(key) {
+                if (!dbInstance) await openDB();
+                return new Promise((resolve, reject) => {
+                    const tx = dbInstance.transaction([STORE_NAME], 'readonly');
+                    const store = tx.objectStore(STORE_NAME);
+                    const request = store.get(key);
+                    
+                    request.onsuccess = (e) => resolve(e.target.result?.data || null);
+                    request.onerror = (e) => reject(e.target.error);
+                });
+            }
+            
+            async function dbClear() {
+                if (!dbInstance) await openDB();
+                return new Promise((resolve, reject) => {
+                    const tx = dbInstance.transaction([STORE_NAME], 'readwrite');
+                    const store = tx.objectStore(STORE_NAME);
+                    const request = store.clear();
+                    
+                    request.onsuccess = () => resolve();
+                    request.onerror = (e) => reject(e.target.error);
+                });
+            }
+            
+            // Inizializza DB all'avvio
+            openDB().catch(err => console.error('IndexedDB non disponibile:', err));
+
+
         // Applicazione Mappa Mentale Accessibile
         class MindMap {
             constructor() {
@@ -719,9 +790,9 @@
                 this.init();
             }
 
-            init() {
+            async init() {
                 this.setupEventListeners();
-                this.loadFromStorage();
+                await this.loadFromStorage();
                 if (this.nodes.length === 0) {
                     this.createRootNode();
                 }
@@ -731,7 +802,7 @@
 
             setupEventListeners() {
                 // Toolbar buttons
-                document.getElementById('btn-new').addEventListener('click', () => this.newMap());
+                document.getElementById('btn-new').addEventListener('click', async () => { await this.newMap(); });
                 document.getElementById('btn-add-child').addEventListener('click', () => this.addChildNode());
                 document.getElementById('btn-add-sibling').addEventListener('click', () => this.addSiblingNode());
                 document.getElementById('btn-delete').addEventListener('click', () => this.deleteNode());			
@@ -1537,37 +1608,59 @@
                 });
             }
 
-			saveToStorage() {
+			async saveToStorage() {
 				const data = {
 					nodes: this.nodes,
 					connections: this.connections,
 					nodeIdCounter: this.nodeIdCounter
 				};
 				try {
-					localStorage.setItem('mindmap-data', JSON.stringify(data));
+					await dbSave('active', data);
 				} catch (err) {
 					console.error('Errore nel salvataggio automatico:', err);
+					// Fallback su localStorage se IndexedDB fallisce
+					try {
+						localStorage.setItem('mindmap-data', JSON.stringify(data));
+					} catch (fallbackErr) {
+						console.error('Anche localStorage fallito:', fallbackErr);
+					}
 				}
 			}
 
-            loadFromStorage() {
-                const data = localStorage.getItem('mindmap-data');
-                if (data) {
-                    try {
-                        const parsed = JSON.parse(data);
+
+            async loadFromStorage() {
+                try {
+                    const data = await dbLoad('active');
+                    if (data) {
+                        this.nodes = data.nodes || [];
+                        this.connections = data.connections || [];
+                        this.nodeIdCounter = data.nodeIdCounter || 0;
+                        this.selectedNode = this.nodes.find(n => n.isRoot) || this.nodes[0] || null;
+                        return true;
+                    }
+                } catch (err) {
+                    console.error('Errore nel caricamento da IndexedDB:', err);
+                }
+                
+                // Fallback: prova localStorage
+                try {
+                    const localData = localStorage.getItem('mindmap-data');
+                    if (localData) {
+                        const parsed = JSON.parse(localData);
                         this.nodes = parsed.nodes || [];
                         this.connections = parsed.connections || [];
                         this.nodeIdCounter = parsed.nodeIdCounter || 0;
                         this.selectedNode = this.nodes.find(n => n.isRoot) || this.nodes[0] || null;
-                    } catch (err) {
-                        console.error('Errore nel caricamento:', err);
-                        this.nodes = [];
-                        this.connections = [];
+                        return true;
                     }
+                } catch (err) {
+                    console.error('Errore nel caricamento da localStorage:', err);
                 }
+                
+                return false;
             }
 
-            newMap() {
+            async newMap() {
                 if (confirm('Sei sicuro di voler creare una nuova mappa? La mappa corrente verrà sostituita.')) {
                     this.nodes = [];
                     this.connections = [];
@@ -1579,6 +1672,9 @@
                     this.createRootNode();
                     this.updateTransform();
                     this.render();
+                    
+                    // Pulisci IndexedDB e localStorage
+                    await dbClear();
                     localStorage.removeItem('mindmap-data');
                 }
             }

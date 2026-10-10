@@ -8,7 +8,6 @@
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 	<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;700&display=swap" rel="stylesheet">	
     <style>
-       
         :root {
             --bg-color: #f5f5f5;
             --node-bg: #ffffff;
@@ -351,8 +350,8 @@
         body.high-contrast {
             --bg-color: #000000;
             --node-bg: #1a1a1a;
-            --text-color: #ffffff;
-            --border-color: #ffffff;
+            --text-color: #000000;
+            --border-color: #000000;
         }
 
         body.high-contrast .toolbar {
@@ -372,9 +371,10 @@
             font-size: 1.2em;
         }
 
-        body.wide-spacing .node {
-            letter-spacing: 0.05em;
-            word-spacing: 0.1em;
+        body.wide-spacing .node textarea {
+			letter-spacing: 0.12em !important;
+			word-spacing: 0.15em !important;
+			line-height: 1.8 !important;
         }
 
         .save-notification {
@@ -494,9 +494,9 @@
 		.note-icon.has-note { filter: none; }
 		.note-icon.empty-note { opacity: 0.35; }
 		
-		.node.search-match {
-			box-shadow: 0 0 0 4px #f1c40f, 0 3px 6px rgba(0,0,0,0.15);
-			border-color: #f39c12 !important;
+		.node.search-match textarea {
+		  background: rgba(255, 255, 0, 0.4) !important;
+		  color: #000 !important;
 		}
 		
 		.help-mascotte {
@@ -542,9 +542,113 @@
 
 		/* Rispetta chi preferisce meno movimento (accessibilità / DSA / ADHD) */
 		@media (prefers-reduced-motion: reduce) {
+			*, *::before, *::after {
+				animation-duration: 0.01ms !important;
+				animation-iteration-count: 1 !important;
+				transition-duration: 0.01ms !important;
+			}
 			.help-mascotte {
 				animation: none;
 			}
+		}
+		
+		@font-face {
+		  font-family: 'OpenDyslexic';
+		  src: url('https://cdn.jsdelivr.net/npm/opendyslexic@latest/OpenDyslexic-Regular.woff2') format('woff2');
+		}
+		body.dyslexic-font { font-family: 'OpenDyslexic', 'Verdana', sans-serif; }
+		
+		/* Griglia di allineamento per disgrafia/discalculia */
+		body.show-grid #canvas-container {
+		  background-image: 
+			linear-gradient(#e0e0e0 1px, transparent 1px),
+			linear-gradient(90deg, #e0e0e0 1px, transparent 1px);
+		  background-size: 20px 20px;
+		}
+		
+		/* Tema low-sensory per autismo/sensibilità visiva */
+		body.low-sensory {
+		  --bg-color: #f0f0f0;
+		  --node-bg: #fafafa;
+		  --text-color: #333333;
+		  --border-color: #999999;
+		  --focus-border: #6666cc;
+		}
+		body.low-sensory .toolbar {
+		  background: #cccccc;
+		  border-bottom: 2px solid #999999;
+		}
+		body.low-sensory .tool-group {
+		  background: rgba(0, 0, 0, 0.08);
+		  border: 1px solid rgba(0, 0, 0, 0.15);
+		}
+		body.low-sensory .toolbar button,
+		body.low-sensory .toolbar select {
+		  background: #dddddd;
+		  color: #333333;
+		}
+		body.low-sensory .toolbar button:hover,
+		body.low-sensory .toolbar select:hover {
+		  background: #bbbbbb;
+		}
+		
+		/* Focus mode per ADHD - nasconde nodi non correlati */
+		body.focus-mode .node {
+		  opacity: 0.15 !important;
+		  filter: blur(1px);
+		  transition: opacity 0.3s, filter 0.3s;
+		}
+		body.focus-mode .node.focused,
+		body.focus-mode .node.is-related {
+		  opacity: 1 !important;
+		  filter: none;
+		}
+		body.focus-mode .node.focused {
+		  box-shadow: 0 0 0 4px #f39c12, 0 5px 15px rgba(0,0,0,0.3);
+		}
+		/* In focus mode, nascondi tutte le connessioni tranne quelle correlate */
+		body.focus-mode .connection-line {
+		  opacity: 0.1 !important;
+		}
+		body.focus-mode .connection-line.is-related {
+		  opacity: 1 !important;
+		}
+		
+		/* Livelli di spaziatura multipli */
+		body.spacing-level-1 {
+		  letter-spacing: 0.05em !important;
+		  word-spacing: 0.1em !important;
+		}
+		body.spacing-level-1 .node textarea {
+		  letter-spacing: 0.05em !important;
+		  word-spacing: 0.1em !important;
+		}
+		body.spacing-level-2 {
+		  letter-spacing: 0.1em !important;
+		  word-spacing: 0.15em !important;
+		}
+		body.spacing-level-2 .node textarea {
+		  letter-spacing: 0.1em !important;
+		  word-spacing: 0.15em !important;
+		}
+		body.spacing-level-3 {
+		  letter-spacing: 0.15em !important;
+		  word-spacing: 0.2em !important;
+		}
+		body.spacing-level-3 .node textarea {
+		  letter-spacing: 0.15em !important;
+		  word-spacing: 0.2em !important;
+		}
+		
+		/* Evidenziazione testo per ricerca - più visibile per dislessici */
+		.node.search-match textarea {
+		  background: rgba(255, 255, 0, 0.5) !important;
+		  color: #000000 !important;
+		}
+		
+		/* Linee di connessione più spesse per difficoltà visuo-spaziali */
+		.connection-line {
+		  stroke-width: 5px !important;
 		}
 		
 		
@@ -596,6 +700,18 @@
 			<button id="btn-contrast" title="Alto contrasto" aria-label="Attiva alto contrasto">🔲 Contrasto</button>
 			<button id="btn-fontsize" title="Font grande" aria-label="Aumenta font">🔤 Font</button>
 			<button id="btn-spacing" title="Spaziatura ampia" aria-label="Spaziatura ampia">↔️ Spazio</button>
+			<button id="btn-dyslexic-font" title="Font OpenDyslexic" aria-label="Attiva font per dislessia">📖 Dyslexic</button>
+			<button id="btn-grid" title="Mostra griglia" aria-label="Mostra griglia di allineamento">⊞ Griglia</button>
+			<button id="btn-low-sensory" title="Tema a basso impatto" aria-label="Attiva tema low-sensory">🌿 Low-sensory</button>
+		</div>
+	</div>
+	
+	<!-- GRUPPO: Focus e Lettura -->
+	<div class="tool-group" role="group" aria-label="Focus e lettura">
+		<span class="group-label">Focus</span>
+		<div class="group-row">
+			<button id="btn-focus-mode" title="Modalità focus" aria-label="Attiva modalità focus">🎯 Focus</button>
+			<button id="btn-read-aloud" title="Leggi nodo" aria-label="Leggi ad alta voce il nodo selezionato">🔊 Leggi</button>
 		</div>
 	</div>
 
@@ -884,9 +1000,55 @@
                     this.render();
                 });
                 document.getElementById('btn-spacing').addEventListener('click', (e) => {
-                    document.body.classList.toggle('wide-spacing');
-                    e.currentTarget.classList.toggle('active');
+                    // Cicla tra i livelli di spaziatura: 0 → 1 → 2 → 3 → 0
+                    const body = document.body;
+                    const levels = ['spacing-level-1', 'spacing-level-2', 'spacing-level-3'];
+                    let currentLevel = -1;
+                    levels.forEach((lvl, idx) => {
+                        if (body.classList.contains(lvl)) currentLevel = idx;
+                        body.classList.remove(lvl);
+                    });
+                    const nextLevel = currentLevel + 1;
+                    if (nextLevel < levels.length) {
+                        body.classList.add(levels[nextLevel]);
+                        e.currentTarget.textContent = `↔️ Spazio ${nextLevel + 1}`;
+                    } else {
+                        e.currentTarget.textContent = '↔️ Spazio';
+                    }
                     this.render();
+                });
+                
+                // Font OpenDyslexic
+                document.getElementById('btn-dyslexic-font').addEventListener('click', (e) => {
+                    document.body.classList.toggle('dyslexic-font');
+                    e.currentTarget.classList.toggle('active');
+                });
+                
+                // Griglia di allineamento
+                document.getElementById('btn-grid').addEventListener('click', (e) => {
+                    document.body.classList.toggle('show-grid');
+                    e.currentTarget.classList.toggle('active');
+                });
+                
+                // Tema low-sensory
+                document.getElementById('btn-low-sensory').addEventListener('click', (e) => {
+                    document.body.classList.toggle('low-sensory');
+                    e.currentTarget.classList.toggle('active');
+                });
+                
+                // Focus mode per ADHD
+                document.getElementById('btn-focus-mode').addEventListener('click', (e) => {
+                    document.body.classList.toggle('focus-mode');
+                    e.currentTarget.classList.toggle('active');
+                    if (this.selectedNode) {
+                        this.updateRelatedNodes();
+                    }
+                    this.renderConnections();
+                });
+                
+                // Lettura vocale nodo selezionato
+                document.getElementById('btn-read-aloud').addEventListener('click', () => {
+                    this.readNodeText();
                 });
 
                 // Color picker
@@ -1266,6 +1428,70 @@
 				textarea.focus();
 			}
 			
+			// Lettura vocale del nodo selezionato (TTS per dislessia)
+			readNodeText() {
+				if (!this.selectedNode) {
+					alert('Seleziona un nodo da leggere.');
+					return;
+				}
+				if (!window.speechSynthesis) {
+					alert('Il tuo browser non supporta la sintesi vocale.');
+					return;
+				}
+				// Annulla eventuali letture in corso
+				window.speechSynthesis.cancel();
+				const utterance = new SpeechSynthesisUtterance(this.selectedNode.text);
+				utterance.lang = 'it-IT';
+				utterance.rate = 0.9; // leggermente più lento per migliore comprensione
+				utterance.pitch = 1;
+				window.speechSynthesis.speak(utterance);
+			}
+			
+			// Aggiorna i nodi correlati per focus-mode (ADHD)
+			updateRelatedNodes() {
+				const body = document.body;
+				if (!body.classList.contains('focus-mode')) {
+					// Rimuovi evidenziazione se focus-mode è disattivo
+					this.canvas.querySelectorAll('.node.is-related').forEach(el => {
+						el.classList.remove('is-related');
+					});
+					return;
+				}
+				
+				// Rimuovi vecchia evidenziazione
+				this.canvas.querySelectorAll('.node.is-related').forEach(el => {
+					el.classList.remove('is-related');
+				});
+				
+				if (!this.selectedNode) return;
+				
+				// Evidenzia: genitore, figli, fratelli
+				const relatedIds = [this.selectedNode.id];
+				
+				// Aggiungi genitore
+				if (this.selectedNode.parentId) {
+					relatedIds.push(this.selectedNode.parentId);
+				}
+				
+				// Aggiungi figli
+				const children = this.nodes.filter(n => n.parentId === this.selectedNode.id);
+				children.forEach(child => relatedIds.push(child.id));
+				
+				// Aggiungi fratelli (stesso genitore)
+				if (this.selectedNode.parentId) {
+					const siblings = this.nodes.filter(n => n.parentId === this.selectedNode.parentId && n.id !== this.selectedNode.id);
+					siblings.forEach(sib => relatedIds.push(sib.id));
+				}
+				
+				// Aggiungi classe is-related agli elementi correlati
+				relatedIds.forEach(id => {
+					const el = this.canvas.querySelector(`[data-node-id="${id}"]`);
+					if (el && id !== this.selectedNode.id) {
+						el.classList.add('is-related');
+					}
+				});
+			}
+			
 			
 			searchNodes(query) {
 				const term = query.trim().toLowerCase();
@@ -1303,6 +1529,29 @@
 
 				// Centra la mappa sul primo risultato
 				this.centerOnNode(matches[0]);
+			}
+			
+			// Chiama updateRelatedNodes quando si seleziona un nodo (per focus-mode)
+			selectNode(node, refocus = true) {
+				this.selectedNode = node;
+				// Aggiorna solo la classe .focused senza ricreare i nodi
+				this.canvas.querySelectorAll('.node').forEach(el => {
+					if (el.dataset.nodeId == node.id) {
+						el.classList.add('focused');
+					} else {
+						el.classList.remove('focused');
+					}
+				});
+				// Aggiorna il colore attivo nella toolbar in base al nodo selezionato
+				if (!node.isRoot) {
+					document.querySelectorAll('.color-btn').forEach(b => {
+						b.classList.toggle('active', b.dataset.color === node.color);
+					});
+				}
+				// Aggiorna nodi correlati per focus-mode
+				this.updateRelatedNodes();
+				// Ridisegna connessioni per focus-mode
+				this.renderConnections();
 			}
 
 			centerOnNode(node) {
@@ -1522,25 +1771,6 @@
 				return div;
 			}
 			
-			selectNode(node, refocus = true) {
-				this.selectedNode = node;
-				// Aggiorna solo la classe .focused senza ricreare i nodi
-				this.canvas.querySelectorAll('.node').forEach(el => {
-					if (el.dataset.nodeId == node.id) {
-						el.classList.add('focused');
-					} else {
-						el.classList.remove('focused');
-					}
-				});
-				// Aggiorna il colore attivo nella toolbar in base al nodo selezionato
-				if (!node.isRoot) {
-					document.querySelectorAll('.color-btn').forEach(b => {
-						b.classList.toggle('active', b.dataset.color === node.color);
-					});
-				}
-			}
-			
-
 			startDrag(e, node) {
 				// Non trascinare se si clicca sulla textarea
 				if (e.target.tagName === 'TEXTAREA') return;
@@ -1581,6 +1811,23 @@
             renderConnections() {
                 this.svg.innerHTML = '';
 
+                const isFocusMode = document.body.classList.contains('focus-mode');
+                const relatedIds = new Set();
+                
+                // Se focus mode attivo, calcola quali nodi sono correlati
+                if (isFocusMode && this.selectedNode) {
+                    relatedIds.add(this.selectedNode.id);
+                    if (this.selectedNode.parentId) {
+                        relatedIds.add(this.selectedNode.parentId);
+                    }
+                    this.nodes.filter(n => n.parentId === this.selectedNode.id)
+                              .forEach(child => relatedIds.add(child.id));
+                    if (this.selectedNode.parentId) {
+                        this.nodes.filter(n => n.parentId === this.selectedNode.parentId && n.id !== this.selectedNode.id)
+                                  .forEach(sib => relatedIds.add(sib.id));
+                    }
+                }
+
                 this.connections.forEach(conn => {
                     const fromNode = this.nodes.find(n => n.id === conn.from);
                     const toNode = this.nodes.find(n => n.id === conn.to);
@@ -1603,6 +1850,15 @@
                     path.setAttribute('d', d);
                     path.setAttribute('class', 'connection-line');
                     path.setAttribute('stroke', conn.color || '#333');
+                    
+                    // Se focus mode, rendi trasparenti le connessioni non correlate
+                    if (isFocusMode && relatedIds.size > 0) {
+                        if (relatedIds.has(conn.from) && relatedIds.has(conn.to)) {
+                            path.setAttribute('class', 'connection-line is-related');
+                        } else {
+                            path.setAttribute('opacity', '0.1');
+                        }
+                    }
 
                     this.svg.appendChild(path);
                 });
@@ -2009,22 +2265,7 @@
 			
 			
 			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
+
         }
 
         // Inizializza l'applicazione

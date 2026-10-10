@@ -30,6 +30,20 @@
             font-size: 16px;
             line-height: 1.6;
         }
+        
+        /* Font personalizzati - applica a body E a tutti i textarea */
+        body.font-lexend,
+        body.font-lexend .node textarea {
+            font-family: 'Lexend', sans-serif !important;
+        }
+        body.font-dyslexic,
+        body.font-dyslexic .node textarea {
+            font-family: 'OpenDyslexic', 'Verdana', sans-serif !important;
+        }
+        body.font-verdana,
+        body.font-verdana .node textarea {
+            font-family: 'Verdana', 'Arial', sans-serif !important;
+        }
 
 		.toolbar {
 			position: fixed;
@@ -554,9 +568,12 @@
 		
 		@font-face {
 		  font-family: 'OpenDyslexic';
-		  src: url('https://cdn.jsdelivr.net/npm/opendyslexic@latest/OpenDyslexic-Regular.woff2') format('woff2');
+		  src: url('https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/woff/OpenDyslexic-Regular.woff') format('woff'),
+			   url('https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/otf/OpenDyslexic-Regular.otf') format('opentype');
+		  font-weight: normal;
+		  font-style: normal;
+		  font-display: swap;
 		}
-		body.dyslexic-font { font-family: 'OpenDyslexic', 'Verdana', sans-serif; }
 		
 		/* Griglia di allineamento per disgrafia/discalculia */
 		body.show-grid #canvas-container {
@@ -700,7 +717,12 @@
 			<button id="btn-contrast" title="Alto contrasto" aria-label="Attiva alto contrasto">🔲 Contrasto</button>
 			<button id="btn-fontsize" title="Font grande" aria-label="Aumenta font">🔤 Font</button>
 			<button id="btn-spacing" title="Spaziatura ampia" aria-label="Spaziatura ampia">↔️ Spazio</button>
-			<button id="btn-dyslexic-font" title="Font OpenDyslexic" aria-label="Attiva font per dislessia">📖 Dyslexic</button>
+			<select id="font-select" aria-label="Scegli font" title="Scegli il font da applicare">
+			  <option value="">📖 Font...</option>
+			  <option value="lexend">Lexend (consigliato)</option>
+			  <option value="dyslexic">OpenDyslexic (dislessia)</option>
+			  <option value="verdana">Verdana (senza grazie)</option>
+			</select>
 			<button id="btn-grid" title="Mostra griglia" aria-label="Mostra griglia di allineamento">⊞ Griglia</button>
 			<button id="btn-low-sensory" title="Tema a basso impatto" aria-label="Attiva tema low-sensory">🌿 Low-sensory</button>
 		</div>
@@ -799,7 +821,7 @@
         </ul>
         <h3 style="margin-top: 15px;">♿ Accessibilità</h3>
         <ul>
-            <li>Font ad alta leggibilità (Verdana)</li>
+            <li>Font ad alta leggibilità</li>
             <li>Contrasti elevati personalizzabili</li>
             <li>Navigazione completa da tastiera</li>
             <li>Spaziatura regolabile</li>
@@ -1018,10 +1040,23 @@
                     this.render();
                 });
                 
-                // Font OpenDyslexic
-                document.getElementById('btn-dyslexic-font').addEventListener('click', (e) => {
-                    document.body.classList.toggle('dyslexic-font');
-                    e.currentTarget.classList.toggle('active');
+                // Selezione Font
+                document.getElementById('font-select').addEventListener('change', (e) => {
+                    const font = e.target.value;
+                    document.body.classList.remove('font-lexend', 'font-dyslexic', 'font-verdana');
+                    if (font) {
+                        document.body.classList.add('font-' + font.toLowerCase());
+                    }
+                    // Forza il re-render dei nodi per applicare il nuovo font
+                    const canvas = document.getElementById('mindmap-canvas');
+                    if (canvas) {
+                        canvas.innerHTML = '';
+                        this.nodes.forEach(node => {
+                            const nodeEl = this.createNodeElement(node);
+                            canvas.appendChild(nodeEl);
+                        });
+                        this.renderConnections();
+                    }
                 });
                 
                 // Griglia di allineamento
@@ -1318,6 +1353,23 @@
 				}
 				return false;
 			}
+			
+			// Restituisce la font-family da usare negli export, in base al font attivo
+			getActiveFontFamily() {
+			  const body = document.body;
+			  if (body.classList.contains('font-dyslexic')) {
+				return "'OpenDyslexic', 'Verdana', sans-serif";
+			  }
+			  if (body.classList.contains('font-lexend')) {
+				return "'Lexend', sans-serif";
+			  }
+			  if (body.classList.contains('font-verdana')) {
+				return "'Verdana', 'Arial', sans-serif";
+			  }
+			  // Default dell'app (nessuna classe font-* attiva)
+			  return "'Lexend', 'Verdana', 'Arial', sans-serif";
+			}
+			
 			
 
             saveState() {
@@ -1655,6 +1707,7 @@
 							node.height = el.offsetHeight;
 						}
 					});
+					this.updateRelatedNodes();
 					this.renderConnections();
 				});
 			}
@@ -1673,6 +1726,12 @@
 				div.tabIndex = 0;
 				div.setAttribute('role', 'button');
 				div.setAttribute('aria-label', `Nodo: ${node.text}`);
+				
+				// Applica il font corrente al nodo
+				const currentFontClass = Array.from(document.body.classList).find(c => c.startsWith('font-'));
+				if (currentFontClass) {
+					div.classList.add(currentFontClass);
+				}
 
 				// Seleziona nodo al click SENZA re-render completo (così la textarea non perde il focus)
 				div.addEventListener('click', (e) => {
@@ -1688,6 +1747,10 @@
 				textarea.value = node.text;
 				//textarea.rows = Math.max(1, node.text.split('\n').length);
 				textarea.setAttribute('aria-label', 'Testo del nodo');
+				// Applica il font corrente anche al textarea
+				if (currentFontClass) {
+					textarea.classList.add(currentFontClass);
+				}
 
 				textarea.addEventListener('mousedown', (e) => {
 					e.stopPropagation();
@@ -1855,8 +1918,6 @@
                     if (isFocusMode && relatedIds.size > 0) {
                         if (relatedIds.has(conn.from) && relatedIds.has(conn.to)) {
                             path.setAttribute('class', 'connection-line is-related');
-                        } else {
-                            path.setAttribute('opacity', '0.1');
                         }
                     }
 
@@ -2049,7 +2110,8 @@
 					// Testo CON WORD-WRAP all'interno del box
 					ctx.fillStyle = node.isRoot ? '#ffffff' : '#1a1a1a';
 					const fontSize = node.isRoot ? 18 : 16;
-					ctx.font = `${node.isRoot ? 'bold ' : ''}${fontSize}px Verdana, Arial, sans-serif`;
+					const fontFamily = this.getActiveFontFamily();
+					ctx.font = `${node.isRoot ? 'bold ' : ''}${fontSize}px ${fontFamily}`;
 					ctx.textAlign = 'center';
 					ctx.textBaseline = 'middle';
 
@@ -2132,8 +2194,9 @@
 			  this.nodes.forEach(node => {
 				const fill = node.isRoot ? node.color : this.hexToSoft(node.color, 0.85);
 				const textColor = node.isRoot ? '#ffffff' : '#1a1a1a';
+				const svgFontFamily = this.getActiveFontFamily().replace(/'/g, '');
 				svg += `<rect x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" rx="10" fill="${fill}" stroke="${node.color}" stroke-width="3"/>`;
-				svg += `<text x="${node.x + node.width/2}" y="${node.y + node.height/2}" fill="${textColor}" font-family="Verdana, Arial" font-size="${node.isRoot?18:16}" ${node.isRoot?'font-weight="bold"':''} text-anchor="middle" dominant-baseline="middle">${this.escapeXml(node.text)}</text>`;
+				svg += `<text x="${node.x + node.width/2}" y="${node.y + node.height/2}" fill="${textColor}" font-family="${svgFontFamily}" font-size="${node.isRoot?18:16}" ${node.isRoot?'font-weight="bold"':''} text-anchor="middle" dominant-baseline="middle">${this.escapeXml(node.text)}</text>`;
 			  });
 
 			  svg += `</svg>`;

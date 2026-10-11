@@ -201,8 +201,9 @@
             padding: 15px 25px;
         }
 
-		.node textarea {
+		.node .node-content {
 			width: 100%;
+			min-width: 100px;
 			border: none;
 			background: transparent;
 			font-family: inherit;
@@ -211,21 +212,39 @@
 			outline: none;
 			color: inherit;
 			line-height: 1.5;
-			overflow: hidden;      /* evita la scrollbar interna */
-			display: block;        /* elimina spazi extra sotto */
+			overflow: hidden;
+			display: block;
 			min-height: 1.5em;
-			white-space: pre-wrap; /* rispetta gli a capo e manda a capo il testo lungo */
+			white-space: pre-wrap;
 			word-break: break-word;
+			padding: 0;
+			margin: 0;
+			cursor: text;
 		}
-
-        .node.root textarea {
-            color: white;
-        }
-
-        .node textarea::selection {
-            background: #f39c12;
-            color: white;
-        }
+		
+		/* Assicura che il contenuto non esca dal nodo */
+		.node .node-content:empty:before {
+			content: attr(placeholder);
+			color: inherit;
+			opacity: 0.5;
+		}
+		
+		.node .node-content strong,
+		.node .node-content b {
+			font-weight: bold;
+		}
+		.node .node-content em,
+		.node .node-content i {
+			font-style: italic;
+		}
+		.node .node-content u {
+			text-decoration: underline;
+		}
+		
+		.node .node-content::selection {
+			background: #f39c12;
+			color: white;
+		}
 
         .connections {
             position: absolute;
@@ -236,11 +255,28 @@
             pointer-events: none;
             z-index: 0;
             transform-origin: 0 0;
+            overflow: visible !important;
         }
 
         .connection-line {
             stroke-width: 3;
             fill: none;
+        }
+        
+        /* Stili per formattazione testo nei nodi */
+        .node textarea {
+            font-family: inherit;
+        }
+        .node textarea strong,
+        .node textarea b {
+            font-weight: bold;
+        }
+        .node textarea em,
+        .node textarea i {
+            font-style: italic;
+        }
+        .node textarea u {
+            text-decoration: underline;
         }
 
         .zoom-controls {
@@ -350,6 +386,18 @@
             position: absolute;
             left: 0;
             color: #3498db;
+            font-weight: bold;
+        }
+        
+        .help-shortcut {
+            display: inline-block;
+            background: #ecf0f1;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            border: 1px solid #bdc3c7;
+            margin-left: 8px;
             font-weight: bold;
         }
 
@@ -728,6 +776,16 @@
 		</div>
 	</div>
 	
+	<!-- GRUPPO: Formattazione testo -->
+	<div class="tool-group" role="group" aria-label="Formattazione testo">
+		<span class="group-label">Testo</span>
+		<div class="group-row">
+			<button id="btn-bold" title="Grassetto (Ctrl+B)" aria-label="Grassetto">𝐁</button>
+			<button id="btn-italic" title="Corsivo (Ctrl+I)" aria-label="Corsivo">𝐼</button>
+			<button id="btn-underline" title="Sottolineato (Ctrl+U)" aria-label="Sottolineato">𝑈̲</button>
+		</div>
+	</div>
+	
 	<!-- GRUPPO: Focus e Lettura -->
 	<div class="tool-group" role="group" aria-label="Focus e lettura">
 		<span class="group-label">Focus</span>
@@ -812,8 +870,11 @@
             <li><kbd>Enter</kbd> - Aggiungi nodo fratello</li>
             <li><kbd>Canc</kbd> / <kbd>Backspace</kbd> - Elimina nodo</li>
             <li><kbd>Ctrl</kbd> + <kbd>N</kbd> - Nuova mappa</li>
-                        <li><kbd>Ctrl</kbd> + <kbd>S</kbd> - Salva mappa</li>
+            <li><kbd>Ctrl</kbd> + <kbd>S</kbd> - Salva mappa</li>
             <li><kbd>Ctrl</kbd> + <kbd>Z</kbd> - Annulla</li>
+            <li><kbd>Ctrl</kbd> + <kbd>B</kbd> - Grassetto</li>
+            <li><kbd>Ctrl</kbd> + <kbd>I</kbd> - Corsivo</li>
+            <li><kbd>Ctrl</kbd> + <kbd>U</kbd> - Sottolineato</li>
             <li><kbd>Frecce</kbd> - Sposta tra nodi</li>
             <li><kbd>+</kbd> / <kbd>-</kbd> - Zoom avanti/indietro</li>
             <li><kbd>Spazio</kbd> + trascina - Panoramica</li>
@@ -1085,6 +1146,21 @@
                 document.getElementById('btn-read-aloud').addEventListener('click', () => {
                     this.readNodeText();
                 });
+                
+                // Formattazione testo: Grassetto
+                document.getElementById('btn-bold').addEventListener('click', () => {
+                    this.formatTextSelection('bold');
+                });
+                
+                // Formattazione testo: Corsivo
+                document.getElementById('btn-italic').addEventListener('click', () => {
+                    this.formatTextSelection('italic');
+                });
+                
+                // Formattazione testo: Sottolineato
+                document.getElementById('btn-underline').addEventListener('click', () => {
+                    this.formatTextSelection('underline');
+                });
 
                 // Color picker
                 document.querySelectorAll('.color-btn').forEach(btn => {
@@ -1136,7 +1212,19 @@
                     return;
                 }
 
-                // Se si sta modificando testo
+                // Se si sta modificando testo in un nodo contenteditable
+                const activeContent = document.activeElement;
+                if (activeContent && activeContent.classList.contains('node-content')) {
+                    // Lascia gestire i tasti al contenteditable stesso
+                    // Ctrl+S per salvare durante la scrittura
+                    if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+                        e.preventDefault();
+                        this.saveToFile();
+                    }
+                    return;
+                }
+
+                // Se si sta modificando testo in un textarea (note panel, search, etc.)
                 if (e.target.tagName === 'TEXTAREA') {
                     if (e.key === 'Tab' && !e.shiftKey) {
                         e.preventDefault();
@@ -1191,6 +1279,37 @@
                         if (e.ctrlKey || e.metaKey) {
                             e.preventDefault();
                             this.undo();
+                        }
+                        break;
+                    case 'b':
+                    case 'B':
+                        if (e.ctrlKey || e.metaKey) {
+                            // Solo se c'è un elemento con focus che non è un input/search
+                            const active = document.activeElement;
+                            if (active && active.classList.contains('node-content')) {
+                                e.preventDefault();
+                                this.formatTextSelection('bold');
+                            }
+                        }
+                        break;
+                    case 'i':
+                    case 'I':
+                        if (e.ctrlKey || e.metaKey) {
+                            const active = document.activeElement;
+                            if (active && active.classList.contains('node-content')) {
+                                e.preventDefault();
+                                this.formatTextSelection('italic');
+                            }
+                        }
+                        break;
+                    case 'u':
+                    case 'U':
+                        if (e.ctrlKey || e.metaKey) {
+                            const active = document.activeElement;
+                            if (active && active.classList.contains('node-content')) {
+                                e.preventDefault();
+                                this.formatTextSelection('underline');
+                            }
                         }
                         break;
                     case '+':
@@ -1499,6 +1618,62 @@
 				window.speechSynthesis.speak(utterance);
 			}
 			
+			// Converte Markdown in HTML per il rendering
+			parseMarkdownToHtml(text) {
+				if (!text) return '';
+				let html = text;
+				// Grassetto: **testo** → <strong>testo</strong>
+				html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+				// Corsivo: *testo* → <em>testo</em> (ma non **testo**)
+				html = html.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
+				// Sottolineato: __testo__ → <u>testo</u>
+				html = html.replace(/__(.+?)__/g, '<u>$1</u>');
+				// A capo: \n → <br>
+				html = html.replace(/\n/g, '<br>');
+				return html;
+			}
+			
+			// Converte HTML in Markdown per il salvataggio
+			parseHtmlToMarkdown(html) {
+				if (!html) return '';
+				let md = html;
+				// <strong>testo</strong> → **testo**
+				md = md.replace(/<strong>(.+?)<\/strong>/g, '**$1**');
+				// <b>testo</b> → **testo**
+				md = md.replace(/<b>(.+?)<\/b>/g, '**$1**');
+				// <em>testo</em> → *testo*
+				md = md.replace(/<em>(.+?)<\/em>/g, '*$1*');
+				// <i>testo</i> → *testo*
+				md = md.replace(/<i>(.+?)<\/i>/g, '*$1*');
+				// <u>testo</u> → __testo__
+				md = md.replace(/<u>(.+?)<\/u>/g, '__$1__');
+				// <br> → \n
+				md = md.replace(/<br\s*\/?>/g, '\n');
+				// Rimuovi tag rimanenti
+				md = md.replace(/<[^>]+>/g, '');
+				return md;
+			}
+			
+			// Formatta il testo selezionato nel contenteditable (grassetto, corsivo, sottolineato)
+			formatTextSelection(formatType) {
+				const content = document.activeElement;
+				if (!content || !content.classList.contains('node-content')) {
+					return; // Non fare nulla se il focus non è su un nodo
+				}
+				
+				// Usa execCommand per applicare la formattazione rich-text
+				const command = formatType === 'underline' ? 'underline' : formatType;
+				document.execCommand(command, false, null);
+				
+				// Aggiorna il nodo con la conversione HTML → Markdown
+				const nodeId = content.closest('.node').dataset.nodeId;
+				const node = this.nodes.find(n => n.id == nodeId);
+				if (node) {
+					node.text = this.parseHtmlToMarkdown(content.innerHTML);
+					this.saveToStorage();
+				}
+			}
+			
 			// Aggiorna i nodi correlati per focus-mode (ADHD)
 			updateRelatedNodes() {
 				const body = document.body;
@@ -1721,7 +1896,6 @@
 				div.style.borderColor = node.color;
 				if (!node.isRoot) {
 					div.style.background = this.hexToSoft(node.color, 0.85);
-					//div.style.color = node.color;
 				}
 				div.tabIndex = 0;
 				div.setAttribute('role', 'button');
@@ -1733,48 +1907,82 @@
 					div.classList.add(currentFontClass);
 				}
 
-				// Seleziona nodo al click SENZA re-render completo (così la textarea non perde il focus)
+				// Seleziona nodo al click SENZA re-render completo
 				div.addEventListener('click', (e) => {
 					e.stopPropagation();
 					this.selectNode(node);
 				});
 
-				// Drag SOLO dal bordo del nodo, non dalla textarea
+				// Drag SOLO dal bordo del nodo, non dal contenuto
 				div.addEventListener('mousedown', (e) => this.startDrag(e, node));
 
-				// Textarea per il contenuto
-				const textarea = document.createElement('textarea');
-				textarea.value = node.text;
-				//textarea.rows = Math.max(1, node.text.split('\n').length);
-				textarea.setAttribute('aria-label', 'Testo del nodo');
-				// Applica il font corrente anche al textarea
+				// Div contenteditable per il contenuto (supporta formattazione rich-text)
+				const contentDiv = document.createElement('div');
+				contentDiv.className = 'node-content';
+				contentDiv.contentEditable = 'true';
+				contentDiv.setAttribute('aria-label', 'Testo del nodo');
+				contentDiv.innerHTML = this.parseMarkdownToHtml(node.text || '');
+				
+				// Applica il font corrente anche al content
 				if (currentFontClass) {
-					textarea.classList.add(currentFontClass);
+					contentDiv.classList.add(currentFontClass);
 				}
 
-				textarea.addEventListener('mousedown', (e) => {
+				contentDiv.addEventListener('mousedown', (e) => {
 					e.stopPropagation();
 				});
 
-				textarea.addEventListener('input', (e) => {
-					node.text = e.target.value;
-					this.autoResizeTextarea(e.target);     // adatta l'altezza
+				contentDiv.addEventListener('input', (e) => {
+					// Converti HTML in Markdown per il salvataggio
+					node.text = this.parseHtmlToMarkdown(contentDiv.innerHTML);
+					this.autoResizeTextarea(contentDiv);
 					div.setAttribute('aria-label', `Nodo: ${node.text}`);
-					// Aggiorna le dimensioni reali del nodo e le connessioni
 					node.width = div.offsetWidth;
 					node.height = div.offsetHeight;
 					this.renderConnections();
 					this.saveToStorage();
 				});
 
-				textarea.addEventListener('focus', () => {
-					this.selectNode(node, false); // non ridisegnare, aggiorna solo lo stato
+				contentDiv.addEventListener('focus', () => {
+					this.selectNode(node, false);
+				});
+				
+				// Gestione tasti per formattazione e cancellazione testo
+				contentDiv.addEventListener('keydown', (e) => {
+					// Formattazione: Ctrl+B/I/U
+					if ((e.ctrlKey || e.metaKey) && ['b', 'i', 'u'].includes(e.key.toLowerCase())) {
+						e.preventDefault();
+						const formatType = e.key.toLowerCase() === 'b' ? 'bold' : e.key.toLowerCase() === 'i' ? 'italic' : 'underline';
+						document.execCommand(formatType === 'underline' ? 'underline' : formatType, false, null);
+						return;
+					}
+					
+					// Canc/Backspace: lascia cancellare il testo SOLO se c'è testo selezionato o il contenuto non è vuoto
+					if (e.key === 'Backspace' || e.key === 'Delete') {
+						const selection = window.getSelection();
+						const selectedText = selection.toString();
+						const hasText = contentDiv.textContent && contentDiv.textContent.trim().length > 0;
+						
+						// Se c'è testo selezionato, lascia cancellare quello
+						if (selectedText.length > 0) {
+							return; // lascia fare al browser
+						}
+						
+						// Se il nodo ha testo e premi Canc/Back, lascia cancellare il testo
+						if (hasText) {
+							return; // lascia fare al browser
+						}
+						
+						// Se il nodo è vuoto, lascia passare l'evento per cancellare il nodo
+						// (il gestore globale della tastiera se ne occuperà)
+						return;
+					}
 				});
 
-				div.appendChild(textarea);
+				div.appendChild(contentDiv);
 				
 				requestAnimationFrame(() => {
-					this.autoResizeTextarea(textarea);
+					this.autoResizeTextarea(contentDiv);
 					node.width = div.offsetWidth;
 					node.height = div.offsetHeight;
 					this.renderConnections();
@@ -2107,7 +2315,7 @@
 					ctx.fill();
 					ctx.stroke();
 
-					// Testo CON WORD-WRAP all'interno del box
+					// Testo CON WORD-WRAP e FORMATTAZIONE all'interno del box
 					ctx.fillStyle = node.isRoot ? '#ffffff' : '#1a1a1a';
 					const fontSize = node.isRoot ? 18 : 16;
 					const fontFamily = this.getActiveFontFamily();
@@ -2115,18 +2323,57 @@
 					ctx.textAlign = 'center';
 					ctx.textBaseline = 'middle';
 
-					const padX = 18; // stesso padding del CSS
+					const padX = 18;
 					const maxTextWidth = w - padX * 2;
 					const lineHeight = fontSize * 1.5;
 
-					// Spezza il testo in righe che entrano nel box
-					const lines = this.wrapText(ctx, node.text || '', maxTextWidth);
+					// Estrai testo puro da Markdown (rimuovi formattazione)
+					const plainText = (node.text || '')
+						.replace(/\*\*(.+?)\*\*/g, '$1')  // grassetto
+						.replace(/\*(.+?)\*/g, '$1')      // corsivo
+						.replace(/__(.+?)__/g, '$1');     // sottolineato
 
+					// Spezza il testo in righe
+					const lines = this.wrapText(ctx, plainText, maxTextWidth);
 					const totalHeight = lines.length * lineHeight;
 					const startY = y + h / 2 - totalHeight / 2 + lineHeight / 2;
 
+					// Disegna ogni riga, applicando la formattazione se presente
 					lines.forEach((line, i) => {
-						ctx.fillText(line, x + w / 2, startY + i * lineHeight);
+						const lineY = startY + i * lineHeight;
+						
+						// Controlla se la riga contiene formattazione
+						const originalLine = (node.text || '').split('\n')[i] || line;
+						
+						// Grassetto: **testo**
+						const boldMatches = originalLine.match(/\*\*(.+?)\*\*/g);
+						if (boldMatches && boldMatches.length > 0) {
+							ctx.font = `bold ${fontSize}px ${fontFamily}`;
+							ctx.fillText(line, x + w / 2, lineY);
+							ctx.font = `${fontSize}px ${fontFamily}`;
+						} else {
+							// Corsivo: *testo*
+							const italicMatches = originalLine.match(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g);
+							if (italicMatches && italicMatches.length > 0) {
+								ctx.font = `italic ${fontSize}px ${fontFamily}`;
+								ctx.fillText(line, x + w / 2, lineY);
+								ctx.font = `${fontSize}px ${fontFamily}`;
+							} else {
+								// Sottolineato: __testo__
+								const underlineMatches = originalLine.match(/__(.+?)__/g);
+								if (underlineMatches && underlineMatches.length > 0) {
+									ctx.fillText(line, x + w / 2, lineY);
+									// Canvas non supporta underline nativo, disegniamo una linea
+									const metrics = ctx.measureText(line);
+									ctx.beginPath();
+									ctx.moveTo(x + w / 2 - metrics.width / 2, lineY + fontSize / 2);
+									ctx.lineTo(x + w / 2 + metrics.width / 2, lineY + fontSize / 2);
+									ctx.stroke();
+								} else {
+									ctx.fillText(line, x + w / 2, lineY);
+								}
+							}
+						}
 					});
 				});
 
@@ -2190,13 +2437,29 @@
 				svg += `<path d="M ${sx} ${sy} C ${cx} ${sy}, ${cx} ${ey}, ${ex} ${ey}" stroke="${conn.color||'#333'}" stroke-width="3" fill="none"/>`;
 			  });
 
-			  // Nodi
+			  // Nodi con formattazione testo
 			  this.nodes.forEach(node => {
 				const fill = node.isRoot ? node.color : this.hexToSoft(node.color, 0.85);
 				const textColor = node.isRoot ? '#ffffff' : '#1a1a1a';
 				const svgFontFamily = this.getActiveFontFamily().replace(/'/g, '');
 				svg += `<rect x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" rx="10" fill="${fill}" stroke="${node.color}" stroke-width="3"/>`;
-				svg += `<text x="${node.x + node.width/2}" y="${node.y + node.height/2}" fill="${textColor}" font-family="${svgFontFamily}" font-size="${node.isRoot?18:16}" ${node.isRoot?'font-weight="bold"':''} text-anchor="middle" dominant-baseline="middle">${this.escapeXml(node.text)}</text>`;
+				
+				// Estrai testo puro da Markdown per SVG
+				const plainText = (node.text || '')
+					.replace(/\*\*(.+?)\*\*/g, '$1')  // grassetto
+					.replace(/\*(.+?)\*/g, '$1')      // corsivo
+					.replace(/__(.+?)__/g, '$1')      // sottolineato
+					.replace(/\n/g, ' ');             // a capo → spazio
+				
+				// SVG non supporta formattazione inline complessa, ma possiamo applicare stili globali
+				const isBold = node.text && node.text.includes('**');
+				const isItalic = node.text && node.text.match(/(?<!\*)\*(?!\*)/);
+				
+				let fontStyle = '';
+				if (isBold) fontStyle += 'font-weight="bold" ';
+				if (isItalic) fontStyle += 'font-style="italic" ';
+				
+				svg += `<text x="${node.x + node.width/2}" y="${node.y + node.height/2}" fill="${textColor}" font-family="${svgFontFamily}" font-size="${node.isRoot?18:16}" ${fontStyle}text-anchor="middle" dominant-baseline="middle">${this.escapeXml(plainText)}</text>`;
 			  });
 
 			  svg += `</svg>`;

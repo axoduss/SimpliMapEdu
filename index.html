@@ -261,7 +261,6 @@
             left: 0;
             width: 100%;
             height: 100%;
-            pointer-events: none;
             z-index: 0;
             transform-origin: 0 0;
             overflow: visible !important;
@@ -715,7 +714,7 @@
 		}
 		
 		/* Evidenziazione testo per ricerca - più visibile per dislessici */
-		.node.search-match textarea {
+		.node.search-match .node-content {
 		  background: rgba(255, 255, 0, 0.5) !important;
 		  color: #000000 !important;
 		}
@@ -808,6 +807,7 @@
 	<div class="tool-group" role="group" aria-label="Esporta e cerca">
 		<span class="group-label">Altro</span>
 		<div class="group-row">
+			<button id="btn-group" title="Raggruppa nodi selezionati (Ctrl+G)" aria-label="Raggruppa nodi con graffa">📎 Raggruppa</button>
 			<select id="export-select" aria-label="Esporta in formato" title="Esporta mappa">
 			  <option value="">📥 Esporta...</option>
 			  <option value="png">PNG (immagine)</option>
@@ -980,7 +980,9 @@
             constructor() {
                 this.nodes = [];
                 this.connections = [];
+                this.groups = []; // Gruppi di nodi con graffe
                 this.selectedNode = null;
+                this.selectedNodes = []; // Nodi selezionati multipli (per raggruppa)
                 this.nodeIdCounter = 0;
                 this.scale = 1;
                 this.panX = 0;
@@ -1024,6 +1026,9 @@
 				  }
 				  e.target.value = ''; // reset del menu dopo la scelta
 				});
+				
+				// Raggruppa nodi con graffa
+				document.getElementById('btn-group').addEventListener('click', () => this.createGroup());
 				
 				
                 document.getElementById('btn-help').addEventListener('click', () => {
@@ -1293,6 +1298,13 @@
                             this.undo();
                         }
                         break;
+                    case 'g':
+                    case 'G':
+                        if (e.ctrlKey || e.metaKey) {
+                            e.preventDefault();
+                            this.createGroup();
+                        }
+                        break;
                     case 'b':
                     case 'B':
                         if (e.ctrlKey || e.metaKey) {
@@ -1458,6 +1470,12 @@
                 this.connections = this.connections.filter(c =>
                     !idsToDelete.includes(c.from) && !idsToDelete.includes(c.to)
                 );
+                
+                // Rimuovi gruppi che contengono nodi eliminati
+                this.groups = this.groups.filter(g => {
+                    g.nodeIds = g.nodeIds.filter(id => !idsToDelete.includes(id));
+                    return g.nodeIds.length >= 2; // Mantieni solo gruppi con 2+ nodi
+                });
 
                 const parent = this.nodes.find(n => n.id === parentId);
                 this.selectedNode = parent || this.nodes.find(n => n.isRoot) || null;
@@ -1510,6 +1528,7 @@
                 this.undoStack.push(JSON.stringify({
                     nodes: this.nodes,
                     connections: this.connections,
+                    groups: this.groups,
                     nodeIdCounter: this.nodeIdCounter
                 }));
             }
@@ -1520,6 +1539,7 @@
                 const state = JSON.parse(this.undoStack.pop());
                 this.nodes = state.nodes;
                 this.connections = state.connections;
+                this.groups = state.groups || [];
                 this.nodeIdCounter = state.nodeIdCounter;
                 this.selectedNode = this.nodes.find(n => n.isRoot) || null;
                 this.render();
@@ -1565,16 +1585,20 @@
 				}
 			}
 
-            focusNode(node) {
-                // Attende il render prima di dare il focus
-                requestAnimationFrame(() => {
-                    const textarea = document.querySelector(`[data-node-id="${node.id}"] textarea`);
-                    if (textarea) {
-                        textarea.focus();
-                        textarea.select();
-                    }
-                });
-            }
+			focusNode(node) {
+				requestAnimationFrame(() => {
+					const content = document.querySelector(`[data-node-id="${node.id}"] .node-content`);
+					if (content) {
+						content.focus();
+						// Seleziona tutto il testo del contenteditable
+						const range = document.createRange();
+						range.selectNodeContents(content);
+						const sel = window.getSelection();
+						sel.removeAllRanges();
+						sel.addRange(range);
+					}
+				});
+			}
 			
 			toggleCollapse(node) {
 				if (!this.getDescendants(node.id).length) return;
@@ -1797,6 +1821,77 @@
 				}
 			}
 			
+			// Crea un gruppo di nodi con graffa
+			createGroup() {
+				// Se non ci sono nodi selezionati multipli, usa il nodo selezionato corrente
+				let nodesToGroup = this.selectedNodes.length > 0 ? this.selectedNodes : [];
+				
+				// Se c'è solo il nodo selezionato corrente, aggiungi anche i suoi fratelli
+				if (nodesToGroup.length === 0 && this.selectedNode && !this.selectedNode.isRoot) {
+					const parent = this.nodes.find(n => n.id === this.selectedNode.parentId);
+					if (parent) {
+						nodesToGroup = this.nodes.filter(n => n.parentId === parent.id);
+					}
+				}
+				
+				// Serve almeno 2 nodi
+				if (nodesToGroup.length < 2) {
+					alert('Seleziona almeno 2 nodi da raggruppare (Ctrl+click per selezione multipla).');
+					return;
+				}
+				
+				// Calcola bounding box del gruppo
+				const minX = Math.min(...nodesToGroup.map(n => n.x));
+				const maxX = Math.max(...nodesToGroup.map(n => n.x + n.width));
+				const minY = Math.min(...nodesToGroup.map(n => n.y));
+				const maxY = Math.max(...nodesToGroup.map(n => n.y + n.height));
+				
+				// Posiziona la graffa a destra del gruppo
+				const braceX = maxX + 20;
+				const braceY = minY;
+				const braceHeight = maxY - minY;
+				
+				// Crea il gruppo
+				const group = {
+					id: 'group-' + Date.now(),
+					nodeIds: nodesToGroup.map(n => n.id),
+					label: 'Gruppo',
+					x: braceX,
+					y: braceY,
+					height: braceHeight,
+					color: nodesToGroup[0].color || '#333'
+				};
+				
+				this.saveState();
+				this.groups.push(group);
+				this.render();
+				this.saveToStorage();
+				
+				// Deseleziona i nodi dopo aver creato il gruppo
+				this.selectedNodes = [];
+				this.render();
+			}
+			
+			// Renderizza le graffe dei gruppi
+			renderGroups() {
+				// Le graffe sono disegnate come path SVG nel renderConnections
+			}
+			
+			// Aggiorna la posizione di un gruppo quando i nodi si muovono
+			updateGroupPosition(group) {
+				const groupNodes = this.nodes.filter(n => group.nodeIds.includes(n.id));
+				if (groupNodes.length < 2) return;
+				
+				const minX = Math.min(...groupNodes.map(n => n.x));
+				const maxX = Math.max(...groupNodes.map(n => n.x + n.width));
+				const minY = Math.min(...groupNodes.map(n => n.y));
+				const maxY = Math.max(...groupNodes.map(n => n.y + n.height));
+				
+				group.x = maxX + 20;
+				group.y = minY;
+				group.height = maxY - minY;
+			}
+			
 			
 			searchNodes(query) {
 				const term = query.trim().toLowerCase();
@@ -1998,7 +2093,26 @@
 				// Seleziona nodo al click SENZA re-render completo
 				div.addEventListener('click', (e) => {
 					e.stopPropagation();
-					this.selectNode(node);
+					
+					// Se Ctrl+click o Shift+click, aggiungi alla selezione multipla
+					if (e.ctrlKey || e.shiftKey) {
+						const index = this.selectedNodes.findIndex(n => n.id === node.id);
+						if (index >= 0) {
+							// Rimuovi se già selezionato
+							this.selectedNodes.splice(index, 1);
+						} else {
+							// Aggiungi alla selezione
+							this.selectedNodes.push(node);
+						}
+						// Mantieni il nodo selezionato corrente per riferimento
+						if (!this.selectedNode) this.selectedNode = node;
+							this.render();                    // il re-render qui serve per la selezione multipla
+							this.updateRelatedNodes();
+					} else {
+						// Click normale: seleziona solo questo nodo
+						this.selectedNodes = [];
+						this.selectNode(node, false);     // ✅ aggiorna .focused senza distruggere i nodi
+					}
 				});
 
 				// Drag SOLO dal bordo del nodo, non dal contenuto
@@ -2140,7 +2254,7 @@
 			
 			startDrag(e, node) {
 				// Non trascinare se si clicca sulla textarea
-				if (e.target.tagName === 'TEXTAREA') return;
+				if (e.target.classList.contains('node-content') || e.target.closest('.node-content')) return;
 				e.stopPropagation();
 				this.isDragging = true;
 
@@ -2227,12 +2341,84 @@
 
                     this.svg.appendChild(path);
                 });
+                
+                // Disegna le graffe dei gruppi
+                this.groups.forEach(group => {
+                    this.updateGroupPosition(group);
+                    this.drawGroupBrace(group);
+                });
+            }
+            
+            // Disegna una graffa per un gruppo
+            drawGroupBrace(group) {
+                const { x, y, height, color } = group;
+                const braceWidth = 15;
+                
+                // Path della graffa (curva a destra)
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                
+                // Graffa verticale che si apre a sinistra
+                const midY = y + height / 2;
+				const d = `
+				  M ${x + braceWidth} ${y}
+				  Q ${x + braceWidth} ${y + height * 0.1} ${x + braceWidth} ${y + height * 0.2}
+				  L ${x + braceWidth} ${midY - height * 0.1}
+				  Q ${x + braceWidth} ${midY} ${x} ${midY}
+				  Q ${x + braceWidth} ${midY} ${x + braceWidth} ${midY + height * 0.1}
+				  L ${x + braceWidth} ${y + height * 0.8}
+				  Q ${x + braceWidth} ${y + height} ${x + braceWidth} ${y + height}
+				`.trim().replace(/\s+/g, ' ');
+                
+                path.setAttribute('d', d);
+                path.setAttribute('fill', 'none');
+                path.setAttribute('stroke', color || '#333');
+                path.setAttribute('stroke-width', '3');
+                path.setAttribute('stroke-linecap', 'round');
+                path.setAttribute('class', 'group-brace');
+                
+                // Rendi la graffa cliccabile per modificare l'etichetta
+                path.style.cursor = 'pointer';
+                path.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.editGroupLabel(group);
+                });
+                
+                this.svg.appendChild(path);
+                
+                // Aggiungi etichetta testo
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', x + braceWidth + 10);
+                text.setAttribute('y', midY + 5);
+                text.setAttribute('fill', color || '#333');
+                text.setAttribute('font-size', '14');
+                text.setAttribute('font-weight', 'bold');
+                text.setAttribute('class', 'group-label');
+                text.textContent = group.label;
+                text.style.cursor = 'pointer';
+                text.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.editGroupLabel(group);
+                });
+                
+                this.svg.appendChild(text);
+            }
+            
+            // Modifica etichetta di un gruppo
+            editGroupLabel(group) {
+                const newLabel = prompt('Modifica etichetta del gruppo:', group.label);
+                if (newLabel !== null && newLabel.trim() !== '') {
+                    this.saveState();
+                    group.label = newLabel.trim();
+                    this.render();
+                    this.saveToStorage();
+                }
             }
 
 			async saveToStorage() {
 				const data = {
 					nodes: this.nodes,
 					connections: this.connections,
+					groups: this.groups,
 					nodeIdCounter: this.nodeIdCounter
 				};
 				try {
@@ -2249,37 +2435,39 @@
 			}
 
 
-            async loadFromStorage() {
-                try {
-                    const data = await dbLoad('active');
-                    if (data) {
-                        this.nodes = data.nodes || [];
-                        this.connections = data.connections || [];
-                        this.nodeIdCounter = data.nodeIdCounter || 0;
-                        this.selectedNode = this.nodes.find(n => n.isRoot) || this.nodes[0] || null;
-                        return true;
-                    }
-                } catch (err) {
-                    console.error('Errore nel caricamento da IndexedDB:', err);
-                }
-                
-                // Fallback: prova localStorage
-                try {
-                    const localData = localStorage.getItem('mindmap-data');
-                    if (localData) {
-                        const parsed = JSON.parse(localData);
-                        this.nodes = parsed.nodes || [];
-                        this.connections = parsed.connections || [];
-                        this.nodeIdCounter = parsed.nodeIdCounter || 0;
-                        this.selectedNode = this.nodes.find(n => n.isRoot) || this.nodes[0] || null;
-                        return true;
-                    }
-                } catch (err) {
-                    console.error('Errore nel caricamento da localStorage:', err);
-                }
-                
-                return false;
-            }
+			async loadFromStorage() {
+				try {
+					const data = await dbLoad('active');
+					if (data) {
+						this.nodes = data.nodes || [];
+						this.connections = data.connections || [];
+						this.groups = data.groups || [];          // ✅ AGGIUNTA: ripristina i gruppi
+						this.nodeIdCounter = data.nodeIdCounter || 0;
+						this.selectedNode = this.nodes.find(n => n.isRoot) || this.nodes[0] || null;
+						return true;
+					}
+				} catch (err) {
+					console.error('Errore nel caricamento da IndexedDB:', err);
+				}
+
+				// Fallback: prova localStorage
+				try {
+					const localData = localStorage.getItem('mindmap-data');
+					if (localData) {
+						const parsed = JSON.parse(localData);
+						this.nodes = parsed.nodes || [];
+						this.connections = parsed.connections || [];
+						this.groups = parsed.groups || [];
+						this.nodeIdCounter = parsed.nodeIdCounter || 0;
+						this.selectedNode = this.nodes.find(n => n.isRoot) || this.nodes[0] || null;
+						return true;
+					}
+				} catch (err) {
+					console.error('Errore nel caricamento da localStorage:', err);
+				}
+
+				return false;
+			}
 
             async newMap() {
                 if (confirm('Sei sicuro di voler creare una nuova mappa? La mappa corrente verrà sostituita.')) {
@@ -2480,8 +2668,39 @@
 				
 				// SECONDA PASSATA: disegna immagini (async)
 				await this.drawNodeImages(ctx);
+				
+				// TERZA PASSATA: disegna le graffe dei gruppi
+				this.groups.forEach(group => {
+					this.drawGroupBraceCanvas(ctx, group);
+				});
 
 				return canvas.toDataURL('image/png');
+			}
+			
+			// Disegna una graffa per un gruppo (canvas export)
+			drawGroupBraceCanvas(ctx, group) {
+				const { x, y, height, color } = group;
+				const braceWidth = 15;
+				const midY = y + height / 2;
+				
+				ctx.strokeStyle = color || '#333';
+				ctx.lineWidth = 3;
+				ctx.lineCap = 'round';
+				ctx.beginPath();
+				ctx.moveTo(x + braceWidth, y);
+				ctx.quadraticCurveTo(x + braceWidth, y + height * 0.1, x + braceWidth, y + height * 0.2);
+				ctx.lineTo(x + braceWidth, midY - height * 0.1);
+				ctx.quadraticCurveTo(x + braceWidth, midY, x, midY);          
+				ctx.quadraticCurveTo(x + braceWidth, midY, x + braceWidth, midY + height * 0.1); 
+				ctx.lineTo(x + braceWidth, y + height * 0.8);
+				ctx.quadraticCurveTo(x + braceWidth, y + height, x + braceWidth, y + height);
+				ctx.stroke();
+				
+				// Etichetta testo
+				ctx.fillStyle = color || '#333';
+				ctx.font = 'bold 14px Lexend, Verdana, sans-serif';
+				ctx.textBaseline = 'middle';
+				ctx.fillText(group.label, x + braceWidth + 10, midY + 5);
 			}
 			
 			// Disegna le immagini dei nodi sul canvas (async per caricamento)
@@ -2693,6 +2912,7 @@
 					savedAt: new Date().toISOString(),
 					nodes: this.nodes,
 					connections: this.connections,
+					groups: this.groups,
 					nodeIdCounter: this.nodeIdCounter
 				};
 
@@ -2726,6 +2946,7 @@
 						this.saveState(); // permette l'undo
 						this.nodes = data.nodes;
 						this.connections = data.connections || [];
+						this.groups = data.groups || [];
 						this.nodeIdCounter = data.nodeIdCounter ||
 							(Math.max(0, ...this.nodes.map(n => n.id)) + 1);
 						this.selectedNode = this.nodes.find(n => n.isRoot) || this.nodes[0] || null;
@@ -2743,17 +2964,21 @@
 			}
 			
 			
-			startAutoSave(intervalMs = 30000) { 
+			startAutoSave(intervalMs = 30000) {
 				// Evita salvataggi inutili se nulla è cambiato
 				this._lastSavedSnapshot = '';
-				this._autoSaveTimer = setInterval(() => {
+				this._autoSaveTimer = setInterval(async () => {
 					const snapshot = JSON.stringify({
 						nodes: this.nodes,
 						connections: this.connections,
+						groups: this.groups,
 						nodeIdCounter: this.nodeIdCounter
 					});
+
 					if (snapshot !== this._lastSavedSnapshot) {
-						localStorage.setItem('mindmap-data', snapshot);
+						// Usa lo stesso canale del salvataggio principale (IndexedDB,
+						// con fallback automatico su localStorage dentro saveToStorage)
+						await this.saveToStorage();
 						this._lastSavedSnapshot = snapshot;
 						console.log('💾 Autosave eseguito', new Date().toLocaleTimeString());
 					}

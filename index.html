@@ -751,6 +751,7 @@
 			<button id="btn-add-sibling" title="Aggiungi nodo fratello (Enter)" aria-label="Aggiungi nodo fratello">➕ Fratello</button>
 			<button id="btn-delete" title="Elimina nodo (Canc)" aria-label="Elimina nodo">🗑️ Elimina</button>
 			<button id="btn-markers" title="Aggiungi marcatori" aria-label="Aggiungi marcatori">🏷️ Marcatori</button>
+			<button id="btn-group" title="Raggruppa nodi selezionati (Ctrl+G)" aria-label="Raggruppa nodi con graffa">📎 Raggruppa</button>
 		</div>
 	</div>
 
@@ -771,11 +772,13 @@
 		<span class="group-label">Vista</span>
 		<div class="group-row">
 			<button id="btn-contrast" title="Alto contrasto" aria-label="Attiva alto contrasto">🔲 Contrasto</button>
-		
 			<button id="btn-grid" title="Mostra griglia" aria-label="Mostra griglia di allineamento">⊞ Griglia</button>
 			<button id="btn-low-sensory" title="Tema a basso impatto" aria-label="Attiva tema low-sensory">🌿 Low-sensory</button>
+			<button id="btn-focus-mode" title="Modalità focus" aria-label="Attiva modalità focus">🎯 Focus</button>
+			<button id="btn-read-aloud" title="Leggi nodo" aria-label="Leggi ad alta voce il nodo selezionato">🔊 Leggi</button>
 		</div>
 	</div>
+	
 	
 	<!-- GRUPPO: Formattazione testo -->
 	<div class="tool-group" role="group" aria-label="Formattazione testo">
@@ -784,7 +787,7 @@
 			<button id="btn-fontsize" title="Font grande" aria-label="Aumenta font">🔤 Font grande</button>
 			<button id="btn-spacing" title="Spaziatura ampia" aria-label="Spaziatura ampia">↔️ Spazio</button>
 			<button id="btn-bold" title="Grassetto (Ctrl+B)" aria-label="Grassetto">𝐁 Grassetto</button>
-			<button id="btn-italic" title="Corsivo (Ctrl+I)" aria-label="Corsivo">𝐼 Sottolineato</button>
+			<button id="btn-italic" title="Corsivo (Ctrl+I)" aria-label="Corsivo">𝐼 Corsivo</button>
 			<button id="btn-underline" title="Sottolineato (Ctrl+U)" aria-label="Sottolineato">𝑈̲   Sottolineato </button>
 			<select id="font-select" aria-label="Scegli font" title="Scegli il font da applicare">
 			  <option value="">📖 Font...</option>
@@ -795,20 +798,13 @@
 		</div>
 	</div>
 	
-	<!-- GRUPPO: Focus e Lettura -->
-	<div class="tool-group" role="group" aria-label="Focus e lettura">
-		<span class="group-label">Focus</span>
-		<div class="group-row">
-			<button id="btn-focus-mode" title="Modalità focus" aria-label="Attiva modalità focus">🎯 Focus</button>
-			<button id="btn-read-aloud" title="Leggi nodo" aria-label="Leggi ad alta voce il nodo selezionato">🔊 Leggi</button>
-		</div>
-	</div>
+
 
 	<!-- GRUPPO: Esporta e cerca -->
 	<div class="tool-group" role="group" aria-label="Esporta e cerca">
 		<span class="group-label">Altro</span>
 		<div class="group-row">
-			<button id="btn-group" title="Raggruppa nodi selezionati (Ctrl+G)" aria-label="Raggruppa nodi con graffa">📎 Raggruppa</button>
+			
 			<select id="export-select" aria-label="Esporta in formato" title="Esporta mappa">
 			  <option value="">📥 Esporta...</option>
 			  <option value="png">PNG (immagine)</option>
@@ -1653,9 +1649,18 @@
 				}
 				// Annulla eventuali letture in corso
 				window.speechSynthesis.cancel();
-				const utterance = new SpeechSynthesisUtterance(this.selectedNode.text);
+
+				// Rimuovi i marcatori Markdown e le immagini prima della lettura
+				const plainText = (this.selectedNode.text || '')
+					.replace(/\*\*(.+?)\*\*/g, '$1')  // grassetto
+					.replace(/\*(.+?)\*/g, '$1')      // corsivo
+					.replace(/__(.+?)__/g, '$1')      // sottolineato
+					.replace(/<img[^>]*>/g, '')       // rimuovi tag immagine
+					.replace(/\n/g, ' ');             // a capo → spazio
+
+				const utterance = new SpeechSynthesisUtterance(plainText);
 				utterance.lang = 'it-IT';
-				utterance.rate = 0.9; // leggermente più lento per migliore comprensione
+				utterance.rate = 0.9;
 				utterance.pitch = 1;
 				window.speechSynthesis.speak(utterance);
 			}
@@ -2658,9 +2663,18 @@
 					
 					// Disegna prima lo sfondo del nodo
 					ctx.fillStyle = node.isRoot ? '#ffffff' : '#1a1a1a';
-					const fontSize = node.isRoot ? 18 : 16;
+					const isLargeFont = document.body.classList.contains('large-font');
+					const fontScale = isLargeFont ? 1.25 : 1;   // coerente con 20/16 del CSS
+					const fontSize = (node.isRoot ? 18 : 16) * fontScale;
 					const fontFamily = this.getActiveFontFamily();
 					ctx.font = `${node.isRoot ? 'bold ' : ''}${fontSize}px ${fontFamily}`;
+
+					// Spaziatura in base al livello attivo (coerente col CSS spacing-level-*)
+					let letterSpacing = '0px';
+					if (document.body.classList.contains('spacing-level-1')) letterSpacing = '0.05em';
+					else if (document.body.classList.contains('spacing-level-2')) letterSpacing = '0.1em';
+					else if (document.body.classList.contains('spacing-level-3')) letterSpacing = '0.15em';
+					if ('letterSpacing' in ctx) ctx.letterSpacing = letterSpacing;
 					ctx.textAlign = 'center';
 					ctx.textBaseline = 'middle';
 
@@ -2751,8 +2765,10 @@
 				
 				// Etichetta testo
 				ctx.fillStyle = color || '#333';
-				ctx.font = 'bold 14px Lexend, Verdana, sans-serif';
+				ctx.textAlign = 'left';          // ← aggiungi questa riga
 				ctx.textBaseline = 'middle';
+				const fontFamily = this.getActiveFontFamily();
+				ctx.font = `bold 14px ${fontFamily}`;
 				ctx.fillText(group.label, x + braceWidth + 10, midY + 5);
 			}
 			
@@ -2841,7 +2857,8 @@
 			
 			exportAsSVG() {
 			  if (this.nodes.length === 0) { alert('Non c\'è nulla da esportare.'); return; }
-			  // Sincronizza le dimensioni reali dal DOM (come fai in exportAsImage)
+
+			  // Sincronizza le dimensioni reali dal DOM
 			  this.nodes.forEach(node => {
 				const el = this.canvas.querySelector(`[data-node-id="${node.id}"]`);
 				if (el) { node.width = el.offsetWidth; node.height = el.offsetHeight; }
@@ -2853,10 +2870,17 @@
 			  const maxY = Math.max(...this.nodes.map(n => n.y + n.height)) + 50;
 			  const w = maxX - minX, h = maxY - minY;
 
+			  // Stato opzioni di accessibilità (lette dalle classi del body)
+			  const fontScale = document.body.classList.contains('large-font') ? 1.25 : 1;
+			  let letterSpacing = '0em', wordSpacing = '0em';
+			  if (document.body.classList.contains('spacing-level-1'))      { letterSpacing = '0.05em'; wordSpacing = '0.1em'; }
+			  else if (document.body.classList.contains('spacing-level-2')) { letterSpacing = '0.1em';  wordSpacing = '0.15em'; }
+			  else if (document.body.classList.contains('spacing-level-3')) { letterSpacing = '0.15em'; wordSpacing = '0.2em'; }
+
 			  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${minX} ${minY} ${w} ${h}">`;
 			  svg += `<rect x="${minX}" y="${minY}" width="${w}" height="${h}" fill="#ffffff"/>`;
 
-			  // Connessioni (stessa curva di Bézier di renderConnections)
+			  // Connessioni (curva di Bézier)
 			  this.connections.forEach(conn => {
 				const f = this.nodes.find(n => n.id === conn.from);
 				const t = this.nodes.find(n => n.id === conn.to);
@@ -2873,47 +2897,93 @@
 				const textColor = node.isRoot ? '#ffffff' : '#1a1a1a';
 				const svgFontFamily = this.getActiveFontFamily().replace(/'/g, '');
 				svg += `<rect x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" rx="10" fill="${fill}" stroke="${node.color}" stroke-width="3"/>`;
-				
-				// Controlla se il nodo contiene immagini
+
 				const contentEl = this.canvas.querySelector(`[data-node-id="${node.id}"] .node-content`);
 				const hasImages = contentEl && contentEl.querySelector('img');
-				
+
 				if (hasImages) {
-					// Estrai e aggiungi le immagini come elementi <image> SVG
-					const imgs = contentEl.querySelectorAll('img');
-					const padX = 18;
-					const imgMaxWidth = node.width - padX * 2;
-					
-					imgs.forEach((img, idx) => {
-						const naturalWidth = img.naturalWidth || 200;
-						const naturalHeight = img.naturalHeight || 150;
-						const imgScale = Math.min(1, imgMaxWidth / naturalWidth);
-						const imgWidth = naturalWidth * imgScale;
-						const imgHeight = naturalHeight * imgScale;
-						const imgX = node.x + (node.width - imgWidth) / 2;
-						const imgY = node.y + (node.height - imgHeight) / 2;
-						svg += `<image href="${img.src}" x="${imgX}" y="${imgY}" width="${imgWidth}" height="${imgHeight}" preserveAspectRatio="xMidYMid meet"/>`;
-					});
+				  const imgs = contentEl.querySelectorAll('img');
+				  const padX = 18;
+				  const imgMaxWidth = node.width - padX * 2;
+
+				  imgs.forEach((img) => {
+					const naturalWidth = img.naturalWidth || 200;
+					const naturalHeight = img.naturalHeight || 150;
+					const imgScale = Math.min(1, imgMaxWidth / naturalWidth);
+					const imgWidth = naturalWidth * imgScale;
+					const imgHeight = naturalHeight * imgScale;
+					const imgX = node.x + (node.width - imgWidth) / 2;
+					const imgY = node.y + (node.height - imgHeight) / 2;
+					svg += `<image href="${img.src}" x="${imgX}" y="${imgY}" width="${imgWidth}" height="${imgHeight}" preserveAspectRatio="xMidYMid meet"/>`;
+				  });
 				} else {
-					// Solo testo (nessuna immagine)
-					// Estrai testo puro da Markdown per SVG
-					const plainText = (node.text || '')
-						.replace(/\*\*(.+?)\*\*/g, '$1')  // grassetto
-						.replace(/\*(.+?)\*/g, '$1')      // corsivo
-						.replace(/__(.+?)__/g, '$1')      // sottolineato
-						.replace(/<img[^>]*>/g, '')       // rimuovi tag img
-						.replace(/\n/g, ' ');             // a capo → spazio
-					
-					// SVG non supporta formattazione inline complessa, ma possiamo applicare stili globali
-					const isBold = node.text && node.text.includes('**');
-					const isItalic = node.text && node.text.match(/(?<!\*)\*(?!\*)/);
-					
-					let fontStyle = '';
-					if (isBold) fontStyle += 'font-weight="bold" ';
-					if (isItalic) fontStyle += 'font-style="italic" ';
-					
-					svg += `<text x="${node.x + node.width/2}" y="${node.y + node.height/2}" fill="${textColor}" font-family="${svgFontFamily}" font-size="${node.isRoot?18:16}" ${fontStyle}text-anchor="middle" dominant-baseline="middle">${this.escapeXml(plainText)}</text>`;
-				}
+					  const plainText = (node.text || '')
+						.replace(/\*\*(.+?)\*\*/g, '$1')
+						.replace(/\*(.+?)\*/g, '$1')
+						.replace(/__(.+?)__/g, '$1')
+						.replace(/<img[^>]*>/g, '')
+						.replace(/\n/g, ' ');
+
+					  const isBold = node.text && node.text.includes('**');
+					  const isItalic = node.text && node.text.match(/(?<!\*)\*(?!\*)/);
+
+					  let fontStyle = '';
+					  if (isBold) fontStyle += 'font-weight="bold" ';
+					  if (isItalic) fontStyle += 'font-style="italic" ';
+
+					  const nodeFontSize = (node.isRoot ? 18 : 16) * fontScale;
+					  const lineHeight = nodeFontSize * 1.5;   // coerente col PNG
+					  const padX = 18;
+					  const maxTextWidth = node.width - padX * 2;
+
+					  // Converte letterSpacing/wordSpacing (es. "0.1em") in px per la misurazione
+					  const lsPx = parseFloat(letterSpacing) * nodeFontSize;
+					  const wsPx = parseFloat(wordSpacing)  * nodeFontSize;
+
+					  // Canvas temporaneo SOLO per misurare il testo (riusa la stessa logica del PNG)
+					  const measureCtx = document.createElement('canvas').getContext('2d');
+					  measureCtx.font = `${isBold ? 'bold ' : ''}${isItalic ? 'italic ' : ''}${nodeFontSize}px ${svgFontFamily}`;
+					  if ('letterSpacing' in measureCtx) measureCtx.letterSpacing = `${lsPx}px`;
+					  if ('wordSpacing'  in measureCtx) measureCtx.wordSpacing  = `${wsPx}px`;
+
+					  // Spezza in righe rispettando la larghezza del nodo (stessa idea di wrapText)
+					  const lines = this.wrapText(measureCtx, plainText, maxTextWidth);
+
+					  // Centra verticalmente il blocco di righe
+					  const totalHeight = lines.length * lineHeight;
+					  const centerX = node.x + node.width / 2;
+					  const startY  = node.y + node.height / 2 - totalHeight / 2 + lineHeight / 2;
+
+					  svg += `<text x="${centerX}" y="${startY}" `
+						   + `fill="${textColor}" font-family="${svgFontFamily}" `
+						   + `font-size="${nodeFontSize}" ${fontStyle}`
+						   + `letter-spacing="${letterSpacing}" word-spacing="${wordSpacing}" `
+						   + `text-anchor="middle" dominant-baseline="middle">`;
+
+					  lines.forEach((line, i) => {
+						svg += `<tspan x="${centerX}" dy="${i === 0 ? 0 : lineHeight}">${this.escapeXml(line)}</tspan>`;
+					  });
+
+					  svg += `</text>`;
+					}
+			  });
+
+			  // Graffe dei gruppi
+			  const svgFontFamily = this.getActiveFontFamily().replace(/'/g, '');
+			  this.groups.forEach(group => {
+				this.updateGroupPosition(group);
+				const { x, y, height, color } = group;
+				const braceWidth = 15;
+				const midY = y + height / 2;
+				const d = `M ${x} ${y} Q ${x} ${y + height*0.1} ${x} ${y + height*0.2} `
+						+ `L ${x} ${midY - height*0.1} Q ${x} ${midY} ${x + braceWidth} ${midY} `
+						+ `Q ${x} ${midY} ${x} ${midY + height*0.1} `
+						+ `L ${x} ${y + height*0.8} Q ${x} ${y + height} ${x} ${y + height}`;
+				svg += `<path d="${d}" fill="none" stroke="${color||'#333'}" stroke-width="3" stroke-linecap="round"/>`;
+				svg += `<text x="${x + braceWidth + 10}" y="${midY + 5}" `
+					 + `fill="${color||'#333'}" font-family="${svgFontFamily}" `
+					 + `font-size="${14 * fontScale}" font-weight="bold" text-anchor="start" `
+					 + `dominant-baseline="middle">${this.escapeXml(group.label)}</text>`;
 			  });
 
 			  svg += `</svg>`;

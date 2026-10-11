@@ -222,6 +222,15 @@
 			cursor: text;
 		}
 		
+		/* Immagini incollate nei nodi */
+		.node .node-content img {
+			max-width: 100%;
+			height: auto;
+			display: block;
+			margin: 4px auto;
+			border-radius: 4px;
+		}
+		
 		/* Assicura che il contenuto non esca dal nodo */
 		.node .node-content:empty:before {
 			content: attr(placeholder);
@@ -1071,6 +1080,9 @@
 					this.saveToStorage();
 				});
 				
+				// Gestione incolla immagini
+				document.addEventListener('paste', (e) => this.handlePaste(e));
+				
 
                 // Accessibilità
                 document.getElementById('btn-contrast').addEventListener('click', (e) => {
@@ -1628,8 +1640,16 @@
 				html = html.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
 				// Sottolineato: __testo__ → <u>testo</u>
 				html = html.replace(/__(.+?)__/g, '<u>$1</u>');
-				// A capo: \n → <br>
-				html = html.replace(/\n/g, '<br>');
+				// A capo: \n → <br> (ma non dentro tag <img>)
+				// Dividi per righe e gestisci separatamente
+				const lines = html.split('\n');
+				html = lines.map(line => {
+					// Se la linea contiene un'immagine <img>, non aggiungere <br>
+					if (line.includes('<img')) {
+						return line;
+					}
+					return line;
+				}).join('<br>');
 				return html;
 			}
 			
@@ -1649,16 +1669,31 @@
 				md = md.replace(/<u>(.+?)<\/u>/g, '__$1__');
 				// <br> → \n
 				md = md.replace(/<br\s*\/?>/g, '\n');
-				// Rimuovi tag rimanenti
-				md = md.replace(/<[^>]+>/g, '');
+				// Preserva le immagini come HTML (non convertirle in testo)
+				// Le immagini <img src="data:..."> rimangono nel Markdown
+				// Rimuovi solo altri tag non desiderati, ma NON i tag <img>
+				md = md.replace(/<(?!img[^>]*>)[^>]+>/g, '');
 				return md;
 			}
 			
 			// Formatta il testo selezionato nel contenteditable (grassetto, corsivo, sottolineato)
 			formatTextSelection(formatType) {
-				const content = document.activeElement;
+				let content = document.activeElement;
+				
+				// Se il focus non è su un node-content, prova a trovare quello del nodo selezionato
 				if (!content || !content.classList.contains('node-content')) {
-					return; // Non fare nulla se il focus non è su un nodo
+					if (this.selectedNode) {
+						const nodeEl = this.canvas.querySelector(`[data-node-id="${this.selectedNode.id}"]`);
+						if (nodeEl) {
+							content = nodeEl.querySelector('.node-content');
+							if (content) content.focus();
+						}
+					}
+				}
+				
+				// Ancora nulla? Esci
+				if (!content || !content.classList.contains('node-content')) {
+					return;
 				}
 				
 				// Usa execCommand per applicare la formattazione rich-text
@@ -1717,6 +1752,49 @@
 						el.classList.add('is-related');
 					}
 				});
+			}
+			
+			// Gestisce incolla di immagini (da file o screenshot)
+			handlePaste(e) {
+				const items = e.clipboardData?.items;
+				if (!items) return;
+				
+				// Cerca immagini nei dati incollati
+				for (let i = 0; i < items.length; i++) {
+					if (items[i].type.startsWith('image/')) {
+						e.preventDefault();
+						const blob = items[i].getAsFile();
+						const reader = new FileReader();
+						reader.onload = (event) => {
+							const imgData = event.target.result;
+							
+							// Inserisci immagine nel contenteditable del nodo selezionato
+							const content = document.activeElement;
+							if (content && content.classList.contains('node-content')) {
+								content.focus();
+								document.execCommand('insertImage', false, imgData);
+								
+								// Forza ridimensionamento dopo che l'immagine è stata inserita
+								setTimeout(() => {
+									this.autoResizeTextarea(content);
+									const nodeEl = content.closest('.node');
+									if (nodeEl) {
+										const nodeId = nodeEl.dataset.nodeId;
+										const node = this.nodes.find(n => n.id == nodeId);
+										if (node) {
+											node.width = nodeEl.offsetWidth;
+											node.height = nodeEl.offsetHeight;
+											this.renderConnections();
+											this.saveToStorage();
+										}
+									}
+								}, 150);
+							}
+						};
+						reader.readAsDataURL(blob);
+						return;
+					}
+				}
 			}
 			
 			
@@ -1793,6 +1871,7 @@
 				// Resetta l'altezza per calcolare correttamente lo scrollHeight
 				textarea.style.height = 'auto';
 				textarea.style.height = textarea.scrollHeight + 'px';
+				// Con immagini, scrollHeight include l'altezza reale degli elementi img
 			}
 
             startPan(e) {
@@ -1872,18 +1951,27 @@
 				});
 
 				// Ridimensiona textarea e aggiorna dimensioni reali
+				// Doppio requestAnimationFrame per dare tempo a immagini e formattazione di caricarsi
 				requestAnimationFrame(() => {
 					this.nodes.forEach(node => {
 						const el = this.canvas.querySelector(`[data-node-id="${node.id}"]`);
 						if (el) {
-							const ta = el.querySelector('textarea');
-							if (ta) this.autoResizeTextarea(ta);
-							node.width = el.offsetWidth;
-							node.height = el.offsetHeight;
+							const content = el.querySelector('.node-content');
+							if (content) this.autoResizeTextarea(content);
 						}
 					});
-					this.updateRelatedNodes();
-					this.renderConnections();
+					// Seconda passata: calcola dimensioni finali dopo rendering completo
+					requestAnimationFrame(() => {
+						this.nodes.forEach(node => {
+							const el = this.canvas.querySelector(`[data-node-id="${node.id}"]`);
+							if (el) {
+								node.width = el.offsetWidth;
+								node.height = el.offsetHeight;
+							}
+						});
+						this.updateRelatedNodes();
+						this.renderConnections();
+					});
 				});
 			}
 
@@ -1937,10 +2025,14 @@
 					node.text = this.parseHtmlToMarkdown(contentDiv.innerHTML);
 					this.autoResizeTextarea(contentDiv);
 					div.setAttribute('aria-label', `Nodo: ${node.text}`);
-					node.width = div.offsetWidth;
-					node.height = div.offsetHeight;
-					this.renderConnections();
-					this.saveToStorage();
+					
+					// Ritarda il calcolo dimensioni per dare tempo alle immagini di caricarsi
+					requestAnimationFrame(() => {
+						node.width = div.offsetWidth;
+						node.height = div.offsetHeight;
+						this.renderConnections();
+						this.saveToStorage();
+					});
 				});
 
 				contentDiv.addEventListener('focus', () => {
@@ -1981,11 +2073,15 @@
 
 				div.appendChild(contentDiv);
 				
+				// Ritarda il ridimensionamento iniziale per dare tempo a immagini e formattazione di caricarsi
 				requestAnimationFrame(() => {
 					this.autoResizeTextarea(contentDiv);
-					node.width = div.offsetWidth;
-					node.height = div.offsetHeight;
-					this.renderConnections();
+					// Seconda passata dopo che il contenuto è renderizzato
+					requestAnimationFrame(() => {
+						node.width = div.offsetWidth;
+						node.height = div.offsetHeight;
+						this.renderConnections();
+					});
 				});
 				
 
@@ -2237,7 +2333,7 @@
 				return result;
 			}
 
-            buildCanvasDataURL() {
+            			async buildCanvasDataURL() {
 				if (this.nodes.length === 0) {
 					alert('Non c\'è nulla da esportare.');
 					return;
@@ -2315,7 +2411,11 @@
 					ctx.fill();
 					ctx.stroke();
 
-					// Testo CON WORD-WRAP e FORMATTAZIONE all'interno del box
+					// Estrai il contenuto HTML del nodo per cercare immagini
+					const contentEl = this.canvas.querySelector(`[data-node-id="${node.id}"] .node-content`);
+					const hasImages = contentEl && contentEl.querySelectorAll('img').length > 0;
+					
+					// Disegna prima lo sfondo del nodo
 					ctx.fillStyle = node.isRoot ? '#ffffff' : '#1a1a1a';
 					const fontSize = node.isRoot ? 18 : 16;
 					const fontFamily = this.getActiveFontFamily();
@@ -2327,8 +2427,9 @@
 					const maxTextWidth = w - padX * 2;
 					const lineHeight = fontSize * 1.5;
 
-					// Estrai testo puro da Markdown (rimuovi formattazione)
-					const plainText = (node.text || '')
+					// Estrai testo puro da Markdown (rimuovi formattazione E immagini)
+					let plainText = (node.text || '')
+						.replace(/<img[^>]*>/g, '')  // rimuovi tag img
 						.replace(/\*\*(.+?)\*\*/g, '$1')  // grassetto
 						.replace(/\*(.+?)\*/g, '$1')      // corsivo
 						.replace(/__(.+?)__/g, '$1');     // sottolineato
@@ -2376,17 +2477,74 @@
 						}
 					});
 				});
+				
+				// SECONDA PASSATA: disegna immagini (async)
+				await this.drawNodeImages(ctx);
 
 				return canvas.toDataURL('image/png');
+			}
+			
+			// Disegna le immagini dei nodi sul canvas (async per caricamento)
+			async drawNodeImages(ctx) {
+				const imagePromises = [];
+				
+				this.nodes.forEach(node => {
+					const contentEl = this.canvas.querySelector(`[data-node-id="${node.id}"] .node-content`);
+					if (!contentEl) return;
+					
+					const imgs = contentEl.querySelectorAll('img');
+					if (!imgs.length) return;
+					
+					const { x, y, width: w, height: h } = node;
+					const padX = 18;
+					
+					imgs.forEach((img, imgIndex) => {
+						const promise = new Promise((resolve) => {
+							// Solo immagini base64 (data:image) - non taintano il canvas
+							if (!img.src.startsWith('data:image')) {
+								console.warn('Immagine saltata (non base64):', img.src.substring(0, 50));
+								resolve(); // Salta immagini non-base64
+								return;
+							}
+							const imgObj = new Image();
+							imgObj.src = img.src;
+							imgObj.onload = () => {
+								// Calcola posizione e scala
+								const imgMaxWidth = w - padX * 2;
+								const imgScale = Math.min(1, imgMaxWidth / imgObj.naturalWidth);
+								const imgDrawWidth = imgObj.naturalWidth * imgScale;
+								const imgDrawHeight = imgObj.naturalHeight * imgScale;
+								const imgX = x + (w - imgDrawWidth) / 2;
+								const imgY = y + (h - imgDrawHeight) / 2;
+								console.log(`Immagine ${imgIndex+1} nel nodo ${node.id}: ${imgDrawWidth}x${imgDrawHeight} a ${imgX},${imgY}`);
+								ctx.drawImage(imgObj, imgX, imgY, imgDrawWidth, imgDrawHeight);
+								resolve();
+							};
+							imgObj.onerror = () => {
+								console.error('Errore caricamento immagine:', img.src.substring(0, 50));
+								resolve(); // Continua anche se fallisce
+							};
+						});
+						imagePromises.push(promise);
+					});
+				});
+				
+				console.log(`Totale immagini da disegnare: ${imagePromises.length}`);
+				// Aspetta che tutte le immagini siano caricate e disegnate
+				await Promise.all(imagePromises);
+				console.log('Tutte le immagini disegnate');
 			}
 			
 			exportAsImage() {
 			  if (this.nodes.length === 0) { alert('Non c\'è nulla da esportare.'); return; }
 			  const link = document.createElement('a');
 			  link.download = 'mappa-mentale.png';
-			  link.href = this.buildCanvasDataURL();
-			  link.click();
-			  this.showSaveNotification();
+			  // buildCanvasDataURL è async, quindi usiamo una promise
+			  this.buildCanvasDataURL().then(dataURL => {
+				link.href = dataURL;
+				link.click();
+				this.showSaveNotification();
+			  });
 			}
 			
 			
@@ -2437,29 +2595,53 @@
 				svg += `<path d="M ${sx} ${sy} C ${cx} ${sy}, ${cx} ${ey}, ${ex} ${ey}" stroke="${conn.color||'#333'}" stroke-width="3" fill="none"/>`;
 			  });
 
-			  // Nodi con formattazione testo
+			  // Nodi con formattazione testo e immagini
 			  this.nodes.forEach(node => {
 				const fill = node.isRoot ? node.color : this.hexToSoft(node.color, 0.85);
 				const textColor = node.isRoot ? '#ffffff' : '#1a1a1a';
 				const svgFontFamily = this.getActiveFontFamily().replace(/'/g, '');
 				svg += `<rect x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" rx="10" fill="${fill}" stroke="${node.color}" stroke-width="3"/>`;
 				
-				// Estrai testo puro da Markdown per SVG
-				const plainText = (node.text || '')
-					.replace(/\*\*(.+?)\*\*/g, '$1')  // grassetto
-					.replace(/\*(.+?)\*/g, '$1')      // corsivo
-					.replace(/__(.+?)__/g, '$1')      // sottolineato
-					.replace(/\n/g, ' ');             // a capo → spazio
+				// Controlla se il nodo contiene immagini
+				const contentEl = this.canvas.querySelector(`[data-node-id="${node.id}"] .node-content`);
+				const hasImages = contentEl && contentEl.querySelector('img');
 				
-				// SVG non supporta formattazione inline complessa, ma possiamo applicare stili globali
-				const isBold = node.text && node.text.includes('**');
-				const isItalic = node.text && node.text.match(/(?<!\*)\*(?!\*)/);
-				
-				let fontStyle = '';
-				if (isBold) fontStyle += 'font-weight="bold" ';
-				if (isItalic) fontStyle += 'font-style="italic" ';
-				
-				svg += `<text x="${node.x + node.width/2}" y="${node.y + node.height/2}" fill="${textColor}" font-family="${svgFontFamily}" font-size="${node.isRoot?18:16}" ${fontStyle}text-anchor="middle" dominant-baseline="middle">${this.escapeXml(plainText)}</text>`;
+				if (hasImages) {
+					// Estrai e aggiungi le immagini come elementi <image> SVG
+					const imgs = contentEl.querySelectorAll('img');
+					const padX = 18;
+					const imgMaxWidth = node.width - padX * 2;
+					
+					imgs.forEach((img, idx) => {
+						const naturalWidth = img.naturalWidth || 200;
+						const naturalHeight = img.naturalHeight || 150;
+						const imgScale = Math.min(1, imgMaxWidth / naturalWidth);
+						const imgWidth = naturalWidth * imgScale;
+						const imgHeight = naturalHeight * imgScale;
+						const imgX = node.x + (node.width - imgWidth) / 2;
+						const imgY = node.y + (node.height - imgHeight) / 2;
+						svg += `<image href="${img.src}" x="${imgX}" y="${imgY}" width="${imgWidth}" height="${imgHeight}" preserveAspectRatio="xMidYMid meet"/>`;
+					});
+				} else {
+					// Solo testo (nessuna immagine)
+					// Estrai testo puro da Markdown per SVG
+					const plainText = (node.text || '')
+						.replace(/\*\*(.+?)\*\*/g, '$1')  // grassetto
+						.replace(/\*(.+?)\*/g, '$1')      // corsivo
+						.replace(/__(.+?)__/g, '$1')      // sottolineato
+						.replace(/<img[^>]*>/g, '')       // rimuovi tag img
+						.replace(/\n/g, ' ');             // a capo → spazio
+					
+					// SVG non supporta formattazione inline complessa, ma possiamo applicare stili globali
+					const isBold = node.text && node.text.includes('**');
+					const isItalic = node.text && node.text.match(/(?<!\*)\*(?!\*)/);
+					
+					let fontStyle = '';
+					if (isBold) fontStyle += 'font-weight="bold" ';
+					if (isItalic) fontStyle += 'font-style="italic" ';
+					
+					svg += `<text x="${node.x + node.width/2}" y="${node.y + node.height/2}" fill="${textColor}" font-family="${svgFontFamily}" font-size="${node.isRoot?18:16}" ${fontStyle}text-anchor="middle" dominant-baseline="middle">${this.escapeXml(plainText)}</text>`;
+				}
 			  });
 
 			  svg += `</svg>`;
@@ -2473,17 +2655,19 @@
 			
 			exportAsPDF() {
 			  if (this.nodes.length === 0) { alert('Non c\'è nulla da esportare.'); return; }
-			  const dataURL = this.buildCanvasDataURL();
 			  const { jsPDF } = window.jspdf;
-			  const img = new Image();
-			  img.onload = () => {
-				const orientation = img.width > img.height ? 'l' : 'p';
-				const pdf = new jsPDF({ orientation, unit: 'px', format: [img.width, img.height] });
-				pdf.addImage(dataURL, 'PNG', 0, 0, img.width, img.height);
-				pdf.save('mappa-mentale.pdf');
-				this.showSaveNotification();
-			  };
-			  img.src = dataURL;
+			  // buildCanvasDataURL è async
+			  this.buildCanvasDataURL().then(dataURL => {
+				const img = new Image();
+				img.onload = () => {
+				  const orientation = img.width > img.height ? 'l' : 'p';
+				  const pdf = new jsPDF({ orientation, unit: 'px', format: [img.width, img.height] });
+				  pdf.addImage(dataURL, 'PNG', 0, 0, img.width, img.height);
+				  pdf.save('mappa-mentale.pdf');
+				  this.showSaveNotification();
+				};
+				img.src = dataURL;
+			  });
 			}
 			
 			

@@ -771,14 +771,7 @@
 		<span class="group-label">Vista</span>
 		<div class="group-row">
 			<button id="btn-contrast" title="Alto contrasto" aria-label="Attiva alto contrasto">🔲 Contrasto</button>
-			<button id="btn-fontsize" title="Font grande" aria-label="Aumenta font">🔤 Font</button>
-			<button id="btn-spacing" title="Spaziatura ampia" aria-label="Spaziatura ampia">↔️ Spazio</button>
-			<select id="font-select" aria-label="Scegli font" title="Scegli il font da applicare">
-			  <option value="">📖 Font...</option>
-			  <option value="lexend">Lexend (consigliato)</option>
-			  <option value="dyslexic">OpenDyslexic (dislessia)</option>
-			  <option value="verdana">Verdana (senza grazie)</option>
-			</select>
+		
 			<button id="btn-grid" title="Mostra griglia" aria-label="Mostra griglia di allineamento">⊞ Griglia</button>
 			<button id="btn-low-sensory" title="Tema a basso impatto" aria-label="Attiva tema low-sensory">🌿 Low-sensory</button>
 		</div>
@@ -786,11 +779,19 @@
 	
 	<!-- GRUPPO: Formattazione testo -->
 	<div class="tool-group" role="group" aria-label="Formattazione testo">
-		<span class="group-label">Testo</span>
+		<span class="group-label">Formattazione testo</span>
 		<div class="group-row">
-			<button id="btn-bold" title="Grassetto (Ctrl+B)" aria-label="Grassetto">𝐁</button>
-			<button id="btn-italic" title="Corsivo (Ctrl+I)" aria-label="Corsivo">𝐼</button>
-			<button id="btn-underline" title="Sottolineato (Ctrl+U)" aria-label="Sottolineato">𝑈̲</button>
+			<button id="btn-fontsize" title="Font grande" aria-label="Aumenta font">🔤 Font grande</button>
+			<button id="btn-spacing" title="Spaziatura ampia" aria-label="Spaziatura ampia">↔️ Spazio</button>
+			<button id="btn-bold" title="Grassetto (Ctrl+B)" aria-label="Grassetto">𝐁 Grassetto</button>
+			<button id="btn-italic" title="Corsivo (Ctrl+I)" aria-label="Corsivo">𝐼 Sottolineato</button>
+			<button id="btn-underline" title="Sottolineato (Ctrl+U)" aria-label="Sottolineato">𝑈̲   Sottolineato </button>
+			<select id="font-select" aria-label="Scegli font" title="Scegli il font da applicare">
+			  <option value="">📖 Font...</option>
+			  <option value="lexend">Lexend (consigliato)</option>
+			  <option value="dyslexic">OpenDyslexic (dislessia)</option>
+			  <option value="verdana">Verdana</option>
+			</select>
 		</div>
 	</div>
 	
@@ -983,6 +984,7 @@
                 this.groups = []; // Gruppi di nodi con graffe
                 this.selectedNode = null;
                 this.selectedNodes = []; // Nodi selezionati multipli (per raggruppa)
+				this.selectedGroup = null; // Graffa/gruppo selezionato
                 this.nodeIdCounter = 0;
                 this.scale = 1;
                 this.panX = 0;
@@ -1274,8 +1276,12 @@
                         break;
                     case 'Delete':
                     case 'Backspace':
-                        e.preventDefault();
-                        this.deleteNode();
+						e.preventDefault();
+						if (this.selectedGroup) {
+							this.deleteGroup(this.selectedGroup);
+						} else {
+							this.deleteNode();
+						}
                         break;
                     case 'n':
                     case 'N':
@@ -1971,7 +1977,15 @@
 
             startPan(e) {
                 // Non fare pan se si clicca su un nodo o si sta trascinando
-                if (this.isDragging || e.target.closest('.node')) return;
+               if (this.isDragging || e.target.closest('.node')) return;
+			   if (!e.target.classList.contains('group-brace') && !e.target.classList.contains('group-label')) {
+					this.selectedGroup = null;
+					this.svg.querySelectorAll('.group-brace').forEach(el => {
+						el.setAttribute('stroke-width', '3');
+						el.style.filter = '';
+					});
+				}				
+
                 this.isPanning = true;
                 this.panStartX = e.clientX - this.panX;
                 this.panStartY = e.clientY - this.panY;
@@ -2093,7 +2107,7 @@
 				// Seleziona nodo al click SENZA re-render completo
 				div.addEventListener('click', (e) => {
 					e.stopPropagation();
-					
+					this.selectedGroup = null; // deseleziona la graffa
 					// Se Ctrl+click o Shift+click, aggiungi alla selezione multipla
 					if (e.ctrlKey || e.shiftKey) {
 						const index = this.selectedNodes.findIndex(n => n.id === node.id);
@@ -2360,13 +2374,13 @@
                 // Graffa verticale che si apre a sinistra
                 const midY = y + height / 2;
 				const d = `
-				  M ${x + braceWidth} ${y}
-				  Q ${x + braceWidth} ${y + height * 0.1} ${x + braceWidth} ${y + height * 0.2}
-				  L ${x + braceWidth} ${midY - height * 0.1}
-				  Q ${x + braceWidth} ${midY} ${x} ${midY}
-				  Q ${x + braceWidth} ${midY} ${x + braceWidth} ${midY + height * 0.1}
-				  L ${x + braceWidth} ${y + height * 0.8}
-				  Q ${x + braceWidth} ${y + height} ${x + braceWidth} ${y + height}
+				  M ${x} ${y}
+				  Q ${x} ${y + height * 0.1} ${x} ${y + height * 0.2}
+				  L ${x} ${midY - height * 0.1}
+				  Q ${x} ${midY} ${x + braceWidth} ${midY}
+				  Q ${x} ${midY} ${x} ${midY + height * 0.1}
+				  L ${x} ${y + height * 0.8}
+				  Q ${x} ${y + height} ${x} ${y + height}
 				`.trim().replace(/\s+/g, ' ');
                 
                 path.setAttribute('d', d);
@@ -2375,13 +2389,18 @@
                 path.setAttribute('stroke-width', '3');
                 path.setAttribute('stroke-linecap', 'round');
                 path.setAttribute('class', 'group-brace');
+				path.__groupId = group.id;
                 
                 // Rendi la graffa cliccabile per modificare l'etichetta
                 path.style.cursor = 'pointer';
-                path.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    this.editGroupLabel(group);
-                });
+				path.addEventListener('click', (e) => {
+					e.stopPropagation();
+					this.selectGroup(group);
+				});
+				path.addEventListener('dblclick', (e) => {
+					e.stopPropagation();
+					this.editGroupLabel(group);
+				});
                 
                 this.svg.appendChild(path);
                 
@@ -2395,10 +2414,14 @@
                 text.setAttribute('class', 'group-label');
                 text.textContent = group.label;
                 text.style.cursor = 'pointer';
-                text.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    this.editGroupLabel(group);
-                });
+				text.addEventListener('click', (e) => {
+					e.stopPropagation();
+					this.selectGroup(group);
+				});
+				text.addEventListener('dblclick', (e) => {
+					e.stopPropagation();
+					this.editGroupLabel(group);
+				});
                 
                 this.svg.appendChild(text);
             }
@@ -2413,6 +2436,36 @@
                     this.saveToStorage();
                 }
             }
+			
+			
+			
+			// Seleziona una graffa (evidenziandola) per poterla eliminare con Canc
+			selectGroup(group) {
+				this.selectedGroup = group;
+				this.selectedNode = null; // evita conflitti con la cancellazione del nodo
+				// Resetta lo stile di tutte le graffe
+				this.svg.querySelectorAll('.group-brace').forEach(el => {
+					el.setAttribute('stroke-width', '3');
+					el.style.filter = '';
+				});
+				// Evidenzia quella selezionata
+				const braceEl = Array.from(this.svg.querySelectorAll('.group-brace'))
+					.find(el => el.__groupId === group.id);
+				if (braceEl) {
+					braceEl.setAttribute('stroke-width', '5');
+					braceEl.style.filter = 'drop-shadow(0 0 3px rgba(243,156,18,0.9))';
+				}
+			}
+
+			// Elimina la graffa selezionata (i nodi NON vengono cancellati)
+			deleteGroup(group) {
+				this.saveState(); // consente l'annullamento con Ctrl+Z
+				this.groups = this.groups.filter(g => g.id !== group.id);
+				this.selectedGroup = null;
+				this.render();
+				this.saveToStorage();
+			}
+			
 
 			async saveToStorage() {
 				const data = {
@@ -2687,13 +2740,13 @@
 				ctx.lineWidth = 3;
 				ctx.lineCap = 'round';
 				ctx.beginPath();
-				ctx.moveTo(x + braceWidth, y);
-				ctx.quadraticCurveTo(x + braceWidth, y + height * 0.1, x + braceWidth, y + height * 0.2);
-				ctx.lineTo(x + braceWidth, midY - height * 0.1);
-				ctx.quadraticCurveTo(x + braceWidth, midY, x, midY);          
-				ctx.quadraticCurveTo(x + braceWidth, midY, x + braceWidth, midY + height * 0.1); 
-				ctx.lineTo(x + braceWidth, y + height * 0.8);
-				ctx.quadraticCurveTo(x + braceWidth, y + height, x + braceWidth, y + height);
+				ctx.moveTo(x, y);
+				ctx.quadraticCurveTo(x, y + height * 0.1, x, y + height * 0.2);
+				ctx.lineTo(x, midY - height * 0.1);
+				ctx.quadraticCurveTo(x, midY, x + braceWidth, midY);          // punta verso destra
+				ctx.quadraticCurveTo(x, midY, x, midY + height * 0.1);        // riparte dalla punta
+				ctx.lineTo(x, y + height * 0.8);
+				ctx.quadraticCurveTo(x, y + height, x, y + height);
 				ctx.stroke();
 				
 				// Etichetta testo

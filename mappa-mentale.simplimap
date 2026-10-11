@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "app": "SimpliMap Edu",
-  "savedAt": "2026-10-11T14:52:38.353Z",
+  "savedAt": "2026-10-11T16:28:57.207Z",
   "nodes": [
     {
       "id": 0,
@@ -14,14 +14,14 @@
       "isRoot": true,
       "parentId": null,
       "icons": [],
-      "childrenCount": 14,
+      "childrenCount": 15,
       "collapsed": false
     },
     {
       "id": 8,
       "text": "Pacifico",
       "x": 41.838022903976224,
-      "y": -93.25468957064282,
+      "y": -94.25468957064282,
       "width": 140,
       "height": 87,
       "color": "#4CAF50",
@@ -54,7 +54,7 @@
       "color": "#9C27B0",
       "isRoot": false,
       "parentId": 0,
-      "childrenCount": 4,
+      "childrenCount": 6,
       "icons": []
     },
     {
@@ -104,8 +104,8 @@
     {
       "id": 72,
       "text": "<img src=\"data:image/png;base64,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\" alt=\"\">",
-      "x": 561.5046895706429,
-      "y": 133.74531042935715,
+      "x": 581.5046895706429,
+      "y": 78.74531042935716,
       "width": 257,
       "height": 158,
       "color": "#9C27B0",
@@ -149,8 +149,8 @@
     {
       "id": 78,
       "text": "Neutrone",
-      "x": 514.1666666666666,
-      "y": -470.41666666666663,
+      "x": 517.1666666666666,
+      "y": -465.41666666666663,
       "width": 140,
       "height": 87,
       "color": "#2196F3",
@@ -194,8 +194,8 @@
     {
       "id": 81,
       "text": "Nuovo Nodo",
-      "x": 606.6760458079524,
-      "y": 372.25,
+      "x": 974.3427124746194,
+      "y": 355.2500000000001,
       "width": 140,
       "height": 87,
       "color": "#9C27B0",
@@ -208,14 +208,59 @@
     },
     {
       "id": 82,
-      "text": "***__Prova__***",
-      "x": 511.58802290397637,
-      "y": -593.9953104293572,
+      "text": "Altro",
+      "x": 514.0880229039764,
+      "y": -594.8286437626906,
       "width": 140,
       "height": 87,
       "color": "#2196F3",
       "isRoot": false,
       "parentId": 18,
+      "childrenCount": 0,
+      "icons": [],
+      "collapsed": false,
+      "note": ""
+    },
+    {
+      "id": 83,
+      "text": "Nuovo Nodo",
+      "x": -309.41197709602375,
+      "y": 823.4953104293573,
+      "width": 140,
+      "height": 87,
+      "color": "#E91E63",
+      "isRoot": false,
+      "parentId": 0,
+      "childrenCount": 0,
+      "icons": [],
+      "collapsed": false,
+      "note": ""
+    },
+    {
+      "id": 84,
+      "text": "Nuovo Nodo",
+      "x": 974.3427124746194,
+      "y": 472.5833333333335,
+      "width": 140,
+      "height": 87,
+      "color": "#9C27B0",
+      "isRoot": false,
+      "parentId": 27,
+      "childrenCount": 0,
+      "icons": [],
+      "collapsed": false,
+      "note": ""
+    },
+    {
+      "id": 85,
+      "text": "Nuovo Nodo",
+      "x": 984.3427124746194,
+      "y": 584.2500000000001,
+      "width": 140,
+      "height": 87,
+      "color": "#9C27B0",
+      "isRoot": false,
+      "parentId": 27,
       "childrenCount": 0,
       "icons": [],
       "collapsed": false,
@@ -292,11 +337,26 @@
       "from": 18,
       "to": 82,
       "color": "#2196F3"
+    },
+    {
+      "from": 0,
+      "to": 83,
+      "color": "#E91E63"
+    },
+    {
+      "from": 27,
+      "to": 84,
+      "color": "#9C27B0"
+    },
+    {
+      "from": 27,
+      "to": 85,
+      "color": "#9C27B0"
     }
   ],
   "groups": [
     {
-      "id": "group-1791729097168",
+      "id": "group-1791731643978",
       "nodeIds": [
         34,
         78,
@@ -305,10 +365,35 @@
       ],
       "label": "Nucleo",
       "x": 678.5,
-      "y": -593.9953104293572,
-      "height": 453.74531042935723,
+      "y": -594.8286437626906,
+      "height": 454.5786437626906,
       "color": "#2196F3"
+    },
+    {
+      "id": "group-1791736082399",
+      "nodeIds": [
+        8,
+        80
+      ],
+      "label": "Gruppo",
+      "x": 201.83802290397622,
+      "y": -94.25468957064282,
+      "height": 215,
+      "color": "#4CAF50"
+    },
+    {
+      "id": "group-1791736132503",
+      "nodeIds": [
+        85,
+        84,
+        81
+      ],
+      "label": "Gruppo",
+      "x": 1144.3427124746195,
+      "y": 355.2500000000001,
+      "height": 316,
+      "color": "#9C27B0"
     }
   ],
-  "nodeIdCounter": 83
+  "nodeIdCounter": 86
 }

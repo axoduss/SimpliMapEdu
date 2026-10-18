@@ -177,7 +177,7 @@
 		  padding: 12px 18px;
 		  width: max-content;
 		  min-width: 120px;
-		  max-width: 500px;
+		  max-width: 1000px;
 		  cursor: move;
 		  box-shadow: 0 3px 6px rgba(0,0,0,0.15);
 		  resize: both;          /* abilita il ridimensionamento col mouse */
@@ -1897,7 +1897,7 @@
 			
 			// Aggiorna la posizione di un gruppo quando i nodi si muovono
 			updateGroupPosition(group) {
-				const groupNodes = this.nodes.filter(n => group.nodeIds.includes(n.id));
+				const groupNodes = this.nodes.filter(n => group.nodeIds.includes(n.id) && !this.isNodeHidden(n));
 				if (groupNodes.length < 2) return;
 				
 				const minX = Math.min(...groupNodes.map(n => n.x));
@@ -2292,9 +2292,13 @@
 				
 				// Ridimensionamento manuale col mouse (stile PowerPoint)
 				// Se il nodo ha dimensioni salvate, applicale esplicitamente
-				if (node.manualResize) {
-				  div.style.width = `${node.width}px`;
-				  div.style.height = `${node.height}px`;
+				// Riapplica sempre le dimensioni note, così alla riapertura
+				// il nodo non parte dalle dimensioni minime
+				if (node.width) {
+					div.style.width = `${node.width}px`;
+				}
+				if (node.manualResize && node.height) {
+					div.style.height = `${node.height}px`;
 				}
 
 				const resizeObserver = new ResizeObserver(() => {
@@ -2408,10 +2412,14 @@
                 });
                 
                 // Disegna le graffe dei gruppi
-                this.groups.forEach(group => {
-                    this.updateGroupPosition(group);
-                    this.drawGroupBrace(group);
-                });
+				this.groups.forEach(group => {
+					const groupNodes = this.nodes.filter(n => group.nodeIds.includes(n.id));
+					// Nascondi la graffa se non ci sono almeno 2 nodi visibili
+					const visibleNodes = groupNodes.filter(n => !this.isNodeHidden(n));
+					if (visibleNodes.length < 2) return;
+					this.updateGroupPosition(group);
+					this.drawGroupBrace(group);
+				});
             }
             
             // Disegna una graffa per un gruppo

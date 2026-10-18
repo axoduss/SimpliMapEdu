@@ -1147,6 +1147,7 @@
                 document.getElementById('btn-low-sensory').addEventListener('click', (e) => {
                     document.body.classList.toggle('low-sensory');
                     e.currentTarget.classList.toggle('active');
+					this.render(); // ricalcola colori di nodi e collegamenti
                 });
                 
                 // Focus mode per ADHD
@@ -2137,7 +2138,8 @@
 				div.dataset.nodeId = node.id;
 				div.style.left = `${node.x}px`;
 				div.style.top = `${node.y}px`;
-				div.style.borderColor = node.color;
+				const nodeColor = this.effectiveColor(node.color);
+				div.style.borderColor = nodeColor;
 				if (!node.isRoot) {
 					div.style.background = this.hexToSoft(node.color, 0.85);
 				}
@@ -2399,7 +2401,7 @@
 
                     path.setAttribute('d', d);
                     path.setAttribute('class', 'connection-line');
-                    path.setAttribute('stroke', conn.color || '#333');
+                    path.setAttribute('stroke', this.effectiveColor(conn.color || '#333'));
                     
                     // Se focus mode, rendi trasparenti le connessioni non correlate
                     if (isFocusMode && relatedIds.size > 0) {
@@ -2444,7 +2446,7 @@
                 
                 path.setAttribute('d', d);
                 path.setAttribute('fill', 'none');
-                path.setAttribute('stroke', color || '#333');
+                path.setAttribute('stroke', this.effectiveColor(color || '#333'));
                 path.setAttribute('stroke-width', '3');
                 path.setAttribute('stroke-linecap', 'round');
                 path.setAttribute('class', 'group-brace');
@@ -2467,7 +2469,7 @@
                 const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                 text.setAttribute('x', x + braceWidth + 10);
                 text.setAttribute('y', midY + 5);
-                text.setAttribute('fill', color || '#333');
+                text.setAttribute('fill', this.effectiveColor(color || '#333'));
                 text.setAttribute('font-size', '14');
                 text.setAttribute('font-weight', 'bold');
                 text.setAttribute('class', 'group-label');
@@ -2676,7 +2678,7 @@
 					const startY = fromNode.y + fromNode.height / 2;
 					const endX = toNode.x + toNode.width / 2;
 					const endY = toNode.y + toNode.height / 2;
-					ctx.strokeStyle = conn.color || '#333';
+					ctx.strokeStyle = this.effectiveColor(conn.color || '#333');
 					ctx.beginPath();
 					ctx.moveTo(startX, startY);
 					ctx.bezierCurveTo(
@@ -2689,8 +2691,9 @@
 
 				// Nodi
 				this.nodes.forEach(node => {
-					ctx.fillStyle = node.isRoot ? node.color : this.hexToSoft(node.color, 0.85);
-					ctx.strokeStyle = node.color;
+					const nodeColor = this.effectiveColor(node.color);
+					ctx.fillStyle = node.isRoot ? nodeColor : this.hexToSoft(nodeColor, 0.85);
+					ctx.strokeStyle = nodeColor;
 					ctx.lineWidth = 3;
 
 					const r = 10;
@@ -2804,7 +2807,7 @@
 				const braceWidth = 15;
 				const midY = y + height / 2;
 				
-				ctx.strokeStyle = color || '#333';
+				ctx.strokeStyle = this.effectiveColor(color || '#333');
 				ctx.lineWidth = 3;
 				ctx.lineCap = 'round';
 				ctx.beginPath();
@@ -2818,7 +2821,7 @@
 				ctx.stroke();
 				
 				// Etichetta testo
-				ctx.fillStyle = color || '#333';
+				ctx.fillStyle = this.effectiveColor(color || '#333');
 				ctx.textAlign = 'left';          // ← aggiungi questa riga
 				ctx.textBaseline = 'middle';
 				const fontFamily = this.getActiveFontFamily();
@@ -3033,9 +3036,9 @@
 						+ `L ${x} ${midY - height*0.1} Q ${x} ${midY} ${x + braceWidth} ${midY} `
 						+ `Q ${x} ${midY} ${x} ${midY + height*0.1} `
 						+ `L ${x} ${y + height*0.8} Q ${x} ${y + height} ${x} ${y + height}`;
-				svg += `<path d="${d}" fill="none" stroke="${color||'#333'}" stroke-width="3" stroke-linecap="round"/>`;
+				svg += `<path d="${d}" fill="none" stroke="${this.effectiveColor(color||'#333')}" stroke-width="3" stroke-linecap="round"/>`;
 				svg += `<text x="${x + braceWidth + 10}" y="${midY + 5}" `
-					 + `fill="${color||'#333'}" font-family="${svgFontFamily}" `
+					 + `fill="${this.effectiveColor(color||'#333')}" font-family="${svgFontFamily}" `
 					 + `font-size="${14 * fontScale}" font-weight="bold" text-anchor="start" `
 					 + `dominant-baseline="middle">${this.escapeXml(group.label)}</text>`;
 			  });
@@ -3175,9 +3178,28 @@
 				return `rgb(${mix(r)}, ${mix(g)}, ${mix(b)})`;
 			}
 			
-			
-			
+			// Desatura un colore HEX avvicinandolo al grigio (per low-sensory)
+			desaturateHex(hex, amount = 0.7) {  // Il parametro amount (0.55) controlla quanto il colore si avvicina al grigio: più alto = più spento. Regolalo a piacere (es. 0.4 più acceso, 0.7 molto tenue).
+			  hex = hex.replace('#', '');
+			  if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+			  const r = parseInt(hex.substring(0, 2), 16);
+			  const g = parseInt(hex.substring(2, 4), 16);
+			  const b = parseInt(hex.substring(4, 6), 16);
+			  // Luminanza percepita (grigio equivalente)
+			  const gray = 0.3 * r + 0.59 * g + 0.11 * b;
+			  const mix = (c) => Math.round(c + (gray - c) * amount);
+			  const toHex = (c) => mix(c).toString(16).padStart(2, '0');
+			  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+			}
 
+			// Restituisce il colore effettivo da usare: desaturato se low-sensory è attivo
+			effectiveColor(hex) {
+			  if (!hex) return '#333333';
+			  return document.body.classList.contains('low-sensory')
+				? this.desaturateHex(hex)
+				: hex;
+			}
+			
         }
 
         // Inizializza l'applicazione

@@ -1,0 +1,3211 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SimpliMap Edu</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;700&display=swap" rel="stylesheet">	
+    <style>
+        :root {
+            --bg-color: #f5f5f5;
+            --node-bg: #ffffff;
+            --text-color: #1a1a1a;
+            --border-color: #333333;
+            --focus-border: #0066cc;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Lexend', 'Verdana', 'Arial', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            overflow: hidden;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+        
+        /* Font personalizzati - applica a body E a tutti i textarea */
+        body.font-lexend,
+        body.font-lexend .node textarea {
+            font-family: 'Lexend', sans-serif !important;
+        }
+        body.font-dyslexic,
+        body.font-dyslexic .node textarea {
+            font-family: 'OpenDyslexic', 'Verdana', sans-serif !important;
+        }
+        body.font-verdana,
+        body.font-verdana .node textarea {
+            font-family: 'Verdana', 'Arial', sans-serif !important;
+        }
+
+		.toolbar {
+			position: fixed;
+			top: 0;
+			left: 0;
+			right: 0;
+			background: #2c3e50;
+			padding: 8px 20px;
+			display: flex;
+			gap: 14px;              /* spazio tra i gruppi */
+			flex-wrap: wrap;
+			align-items: flex-start;
+			z-index: 1000;
+			box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+		}
+		
+		.tool-group {
+			display: flex;
+			flex-direction: column;     /* etichetta sopra */
+			gap: 6px;
+			padding: 6px 10px;
+			background: rgba(255, 255, 255, 0.12);  /* più visibile */
+			border-radius: 10px;
+			border: 1px solid rgba(255, 255, 255, 0.15);
+		}
+		
+		/* riga di pulsanti sotto l'etichetta */
+		.tool-group .group-row {
+			display: flex;
+			gap: 8px;
+			align-items: center;
+			flex-wrap: wrap;
+		}
+		
+		.tool-group .group-label {
+			font-size: 11px;
+			font-weight: 700;
+			text-transform: uppercase;
+			letter-spacing: 0.5px;
+			color: #ecf0f1;
+			opacity: 0.9;
+		}
+		
+
+        .toolbar button, .toolbar select {
+            padding: 10px 15px;
+            font-size: 14px;
+            font-family: inherit;
+            border: 2px solid transparent;
+            border-radius: 5px;
+            cursor: pointer;
+            background: #ecf0f1;
+            color: #2c3e50;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        .toolbar button:hover, .toolbar select:hover {
+            background: #3498db;
+            color: white;
+        }
+
+        .toolbar button:focus, .toolbar select:focus {
+            outline: 3px solid #f39c12;
+            outline-offset: 2px;
+        }
+
+        .toolbar button.active {
+            background: #27ae60;
+            color: white;
+        }
+		
+		.toolbar input[type="search"] {
+			padding: 10px 15px;
+			font-size: 14px;
+			font-family: inherit;
+			font-weight: bold;
+			border: 2px solid transparent;
+			border-radius: 5px;
+			background: #ecf0f1;
+			color: #2c3e50;
+			min-width: 180px;
+			transition: all 0.2s;
+		}
+
+		.toolbar input[type="search"]::placeholder {
+			color: #7f8c8d;
+			font-weight: normal;
+		}
+
+		.toolbar input[type="search"]:hover {
+			background: #ffffff;
+		}
+
+		.toolbar input[type="search"]:focus {
+			outline: 3px solid #f39c12;
+			outline-offset: 2px;
+			background: #ffffff;
+		}
+
+		body.high-contrast .toolbar input[type="search"] {
+			background: #1a1a1a;
+			color: #ffffff;
+			border: 2px solid #ffffff;
+		}
+
+		body.high-contrast .toolbar input[type="search"]::placeholder {
+			color: #cccccc;
+		}
+		
+
+        #canvas-container {
+            position: absolute;
+            top: 80px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            overflow: hidden;
+        }
+
+        #mindmap-canvas {
+            position: absolute;
+            transform-origin: 0 0;
+        }
+
+		.node {
+		  position: absolute;
+		  background: var(--node-bg);
+		  border: 3px solid var(--border-color);
+		  border-radius: 10px;
+		  padding: 12px 18px;
+		  width: max-content;
+		  min-width: 120px;
+		  max-width: 1000px;
+		  cursor: move;
+		  box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+		  resize: both;          /* abilita il ridimensionamento col mouse */
+		  overflow: hidden;      /* necessario perché resize funzioni */
+		}
+
+        .node:hover {
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .node.focused {
+            border-color: var(--focus-border);
+            box-shadow: 0 0 0 4px rgba(0,102,204,0.3);
+            outline: none;
+        }
+
+        .node.root {
+            background: #3498db;
+            color: white;
+            font-size: 1.3em;
+            font-weight: bold;
+            padding: 15px 25px;
+        }
+
+		.node .node-content {
+			width: 100%;
+			min-width: 100px;
+			border: none;
+			background: transparent;
+			font-family: inherit;
+			font-size: inherit;
+			resize: none;
+			outline: none;
+			color: inherit;
+			line-height: 1.5;
+			overflow: hidden;
+			display: block;
+			min-height: 1.5em;
+			white-space: pre-wrap;
+			word-break: break-word;
+			padding: 0;
+			margin: 0;
+			cursor: text;
+		}
+		
+		/* Immagini incollate nei nodi */
+		.node .node-content img {
+			max-width: 100%;
+			height: auto;
+			display: block;
+			margin: 4px auto;
+			border-radius: 4px;
+		}
+		
+		/* Assicura che il contenuto non esca dal nodo */
+		.node .node-content:empty:before {
+			content: attr(placeholder);
+			color: inherit;
+			opacity: 0.5;
+		}
+		
+		.node .node-content strong,
+		.node .node-content b {
+			font-weight: bold;
+		}
+		.node .node-content em,
+		.node .node-content i {
+			font-style: italic;
+		}
+		.node .node-content u {
+			text-decoration: underline;
+		}
+		
+		.node .node-content::selection {
+			background: #f39c12;
+			color: white;
+		}
+
+        .connections {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            transform-origin: 0 0;
+            overflow: visible !important;
+        }
+
+        .connection-line {
+            stroke-width: 3;
+            fill: none;
+        }
+        
+        /* Stili per formattazione testo nei nodi */
+        .node textarea {
+            font-family: inherit;
+        }
+        .node textarea strong,
+        .node textarea b {
+            font-weight: bold;
+        }
+        .node textarea em,
+        .node textarea i {
+            font-style: italic;
+        }
+        .node textarea u {
+            text-decoration: underline;
+        }
+
+        .zoom-controls {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 1000;
+        }
+
+        .zoom-controls button {
+            width: 50px;
+            height: 50px;
+            font-size: 24px;
+            border-radius: 50%;
+            border: 3px solid #2c3e50;
+            background: white;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        .zoom-controls button:hover {
+            background: #3498db;
+            color: white;
+        }
+
+        .zoom-controls button:focus {
+            outline: 3px solid #f39c12;
+            outline-offset: 2px;
+        }
+
+        .color-picker {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+
+        .color-btn {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: 3px solid transparent;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .color-btn:hover {
+            transform: scale(1.2);
+        }
+
+        .color-btn.active {
+            border-color: #2c3e50;
+            transform: scale(1.1);
+        }
+
+        .color-btn:focus {
+            outline: 3px solid #f39c12;
+            outline-offset: 2px;
+        }
+
+        .node-icons {
+            display: flex;
+            gap: 5px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+
+        .help-panel {
+            position: fixed;
+            top: 60px;
+            right: 20px;
+            background: white;
+            border: 3px solid #2c3e50;
+            border-radius: 10px;
+            padding: 15px;
+            max-width: 350px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            z-index: 1001;
+            display: none;
+        }
+
+        .help-panel.visible {
+            display: block;
+        }
+
+        .help-panel h3 {
+            margin-bottom: 10px;
+            color: #2c3e50;
+            font-size: 1.2em;
+        }
+
+        .help-panel ul {
+            list-style: none;
+            font-size: 0.9em;
+        }
+
+        .help-panel li {
+            margin-bottom: 8px;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .help-panel li:before {
+            content: "→";
+            position: absolute;
+            left: 0;
+            color: #3498db;
+            font-weight: bold;
+        }
+        
+        .help-shortcut {
+            display: inline-block;
+            background: #ecf0f1;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            border: 1px solid #bdc3c7;
+            margin-left: 8px;
+            font-weight: bold;
+        }
+
+        .help-panel kbd {
+            background: #ecf0f1;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+            border: 1px solid #bdc3c7;
+        }
+
+        body.high-contrast {
+            --bg-color: #000000;
+            --node-bg: #1a1a1a;
+            --text-color: #000000;
+            --border-color: #000000;
+        }
+
+        body.high-contrast .toolbar {
+            background: #000000;
+            border-bottom: 2px solid #ffffff;
+        }
+
+        body.high-contrast .node {
+            border-width: 4px;
+        }
+
+        body.large-font {
+            font-size: 20px;
+        }
+
+        body.large-font .node {
+            font-size: 1.2em;
+        }
+
+        body.wide-spacing .node textarea {
+			letter-spacing: 0.12em !important;
+			word-spacing: 0.15em !important;
+			line-height: 1.8 !important;
+        }
+
+        .save-notification {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #27ae60;
+            color: white;
+            padding: 12px 25px;
+            border-radius: 5px;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 1002;
+            pointer-events: none;
+        }
+
+        .save-notification.visible {
+            opacity: 1;
+        }
+		
+		.collapse-btn {
+			position: absolute;
+			bottom: -12px;
+			left: 50%;
+			transform: translateX(-50%);
+			width: 24px;
+			height: 24px;
+			border-radius: 50%;
+			border: 2px solid #2c3e50;
+			background: white;
+			color: #2c3e50;
+			font-weight: bold;
+			font-size: 16px;
+			line-height: 1;
+			cursor: pointer;
+			padding: 0;
+			z-index: 5;
+		}
+		.collapse-btn:hover { background: #3498db; color: white; }
+		.collapse-btn:focus { outline: 3px solid #f39c12; outline-offset: 2px; }
+		
+		.markers-panel {
+			position: fixed;
+			top: 60px;
+			right: 20px;
+			background: white;
+			border: 3px solid #2c3e50;
+			border-radius: 10px;
+			padding: 15px;
+			box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+			z-index: 1001;
+			display: none;
+		}
+		.markers-panel.visible { display: block; }
+		.markers-grid {
+			display: grid;
+			grid-template-columns: repeat(3, 1fr);
+			gap: 8px;
+		}
+		.marker-btn {
+			width: 50px;
+			height: 50px;
+			font-size: 24px;
+			border: 2px solid #bdc3c7;
+			border-radius: 8px;
+			background: #ecf0f1;
+			cursor: pointer;
+			transition: all 0.2s;
+		}
+		.marker-btn:hover { background: #3498db; transform: scale(1.1); }
+		.marker-btn:focus { outline: 3px solid #f39c12; outline-offset: 2px; }
+
+		.note-panel {
+			position: fixed;
+			top: 60px;
+			right: 20px;
+			background: white;
+			border: 3px solid #2c3e50;
+			border-radius: 10px;
+			padding: 15px;
+			box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+			z-index: 1001;
+			display: none;
+			width: 300px;
+		}
+		.note-panel.visible { display: block; }
+		.note-panel textarea {
+			width: 100%;
+			min-height: 120px;
+			font-family: inherit;
+			font-size: 14px;
+			padding: 8px;
+			border: 2px solid #bdc3c7;
+			border-radius: 6px;
+			resize: vertical;
+		}
+		.note-panel textarea:focus { outline: 3px solid #f39c12; outline-offset: 2px; }
+		.note-action {
+			padding: 8px 15px;
+			font-family: inherit;
+			font-weight: bold;
+			border: 2px solid #2c3e50;
+			border-radius: 5px;
+			background: #ecf0f1;
+			color: #2c3e50;
+			cursor: pointer;
+		}
+		.note-action:hover { background: #3498db; color: white; }
+		.note-action:focus { outline: 3px solid #f39c12; outline-offset: 2px; }
+		
+		.node.search-match textarea {
+		  background: rgba(255, 255, 0, 0.4) !important;
+		  color: #000 !important;
+		}
+		
+		.help-mascotte {
+			position: fixed;
+			bottom: 20px;
+			right: 20px;
+			width: 100px;
+			height: 100px;
+			font-family: inherit;
+			font-size: 28px;
+			border-radius: 50%;
+			border: 3px solid #2c3e50;
+			background: white;
+			color: #2c3e50;
+			cursor: pointer;
+			z-index: 1001;
+			box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			transition: transform 0.2s, background 0.2s;
+		}
+
+		.help-mascotte:hover {
+			background: #3498db;
+			transform: scale(1.1);
+		}
+
+		.help-mascotte:focus {
+			outline: 3px solid #f39c12;
+			outline-offset: 3px;
+		}
+
+		/* Leggera animazione di richiamo, discreta e non invadente */
+		.help-mascotte {
+			animation: mascotte-bounce 3s ease-in-out infinite;
+		}
+
+		@keyframes mascotte-bounce {
+			0%, 90%, 100% { transform: translateY(0); }
+			95%           { transform: translateY(-6px); }
+		}
+
+		/* Rispetta chi preferisce meno movimento (accessibilità / DSA / ADHD) */
+		@media (prefers-reduced-motion: reduce) {
+			*, *::before, *::after {
+				animation-duration: 0.01ms !important;
+				animation-iteration-count: 1 !important;
+				transition-duration: 0.01ms !important;
+			}
+			.help-mascotte {
+				animation: none;
+			}
+		}
+		
+		@font-face {
+		  font-family: 'OpenDyslexic';
+		  src: url('https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/woff/OpenDyslexic-Regular.woff') format('woff'),
+			   url('https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/otf/OpenDyslexic-Regular.otf') format('opentype');
+		  font-weight: normal;
+		  font-style: normal;
+		  font-display: swap;
+		}
+		
+		/* Griglia di allineamento per disgrafia/discalculia */
+		body.show-grid #canvas-container {
+		  background-image: 
+			linear-gradient(#e0e0e0 1px, transparent 1px),
+			linear-gradient(90deg, #e0e0e0 1px, transparent 1px);
+		  background-size: 20px 20px;
+		}
+		
+		/* Tema low-sensory per autismo/sensibilità visiva */
+		body.low-sensory {
+		  --bg-color: #f0f0f0;
+		  --node-bg: #fafafa;
+		  --text-color: #333333;
+		  --border-color: #999999;
+		  --focus-border: #6666cc;
+		}
+		body.low-sensory .toolbar {
+		  background: #cccccc;
+		  border-bottom: 2px solid #999999;
+		}
+		body.low-sensory .tool-group {
+		  background: rgba(0, 0, 0, 0.08);
+		  border: 1px solid rgba(0, 0, 0, 0.15);
+		}
+		body.low-sensory .toolbar button,
+		body.low-sensory .toolbar select {
+		  background: #dddddd;
+		  color: #333333;
+		}
+		body.low-sensory .toolbar button:hover,
+		body.low-sensory .toolbar select:hover {
+		  background: #bbbbbb;
+		}
+		
+		/* Focus mode per ADHD - nasconde nodi non correlati */
+		body.focus-mode .node {
+		  opacity: 0.15 !important;
+		  filter: blur(1px);
+		  transition: opacity 0.3s, filter 0.3s;
+		}
+		body.focus-mode .node.focused,
+		body.focus-mode .node.is-related {
+		  opacity: 1 !important;
+		  filter: none;
+		}
+		body.focus-mode .node.focused {
+		  box-shadow: 0 0 0 4px #f39c12, 0 5px 15px rgba(0,0,0,0.3);
+		}
+		/* In focus mode, nascondi tutte le connessioni tranne quelle correlate */
+		body.focus-mode .connection-line {
+		  opacity: 0.1 !important;
+		}
+		body.focus-mode .connection-line.is-related {
+		  opacity: 1 !important;
+		}
+		
+		/* Livelli di spaziatura multipli */
+		body.spacing-level-1 {
+		  letter-spacing: 0.05em !important;
+		  word-spacing: 0.1em !important;
+		}
+		body.spacing-level-1 .node textarea {
+		  letter-spacing: 0.05em !important;
+		  word-spacing: 0.1em !important;
+		}
+		body.spacing-level-2 {
+		  letter-spacing: 0.1em !important;
+		  word-spacing: 0.15em !important;
+		}
+		body.spacing-level-2 .node textarea {
+		  letter-spacing: 0.1em !important;
+		  word-spacing: 0.15em !important;
+		}
+		body.spacing-level-3 {
+		  letter-spacing: 0.15em !important;
+		  word-spacing: 0.2em !important;
+		}
+		body.spacing-level-3 .node textarea {
+		  letter-spacing: 0.15em !important;
+		  word-spacing: 0.2em !important;
+		}
+		
+		/* Evidenziazione testo per ricerca - più visibile per dislessici */
+		.node.search-match .node-content {
+		  background: rgba(255, 255, 0, 0.5) !important;
+		  color: #000000 !important;
+		}
+		
+		/* Linee di connessione più spesse per difficoltà visuo-spaziali */
+		.connection-line {
+		  stroke-width: 5px !important;
+		}
+		
+		
+		
+		
+    </style>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+	<div class="toolbar" role="toolbar" aria-label="Strumenti mappa mentale">
+
+	  <!-- GRUPPO: File -->
+	<div class="tool-group" role="group" aria-label="Gestione file">
+		<span class="group-label">File</span>
+		<div class="group-row">
+			<button id="btn-new" title="Nuova mappa (Ctrl+N)" aria-label="Nuova mappa">📄 Nuova</button>
+			<button id="btn-open-file" title="Apri file" aria-label="Apri file">📂 Apri</button>
+			<button id="btn-save-file" title="Salva su file (Ctrl+Shift+S)" aria-label="Salva su file">💾 Salva</button>
+		</div>
+	</div>
+
+	  <!-- GRUPPO: Nodi -->
+	<div class="tool-group" role="group" aria-label="Gestione nodi">
+		<span class="group-label">Nodi</span>
+		<div class="group-row">
+			<button id="btn-add-child" title="Aggiungi nodo figlio (Tab)" aria-label="Aggiungi nodo figlio">➕ Figlio</button>
+			<button id="btn-add-sibling" title="Aggiungi nodo fratello (Enter)" aria-label="Aggiungi nodo fratello">➕ Fratello</button>
+			<button id="btn-delete" title="Elimina nodo (Canc)" aria-label="Elimina nodo">🗑️ Elimina</button>
+			<button id="btn-markers" title="Aggiungi marcatori" aria-label="Aggiungi marcatori">🏷️ Marcatori</button>
+			<button id="btn-group" title="Raggruppa nodi selezionati (Ctrl+G)" aria-label="Raggruppa nodi con graffa">📎 Raggruppa</button>
+			<button id="btn-note" title="Aggiungi/modifica nota" aria-label="Aggiungi o modifica nota del nodo">📝 Note</button>
+		</div>
+	</div>
+
+	<!-- GRUPPO: Colori -->
+	<div class="tool-group color-picker" role="group" aria-label="Colori rami">
+		<span class="group-label">Colori</span>
+		<div class="group-row">
+			<button class="color-btn active" data-color="#4CAF50" style="background:#4CAF50;" aria-label="Verde"></button>
+			<button class="color-btn" data-color="#2196F3" style="background:#2196F3;" aria-label="Blu"></button>
+			<button class="color-btn" data-color="#FF9800" style="background:#FF9800;" aria-label="Arancione"></button>
+			<button class="color-btn" data-color="#E91E63" style="background:#E91E63;" aria-label="Rosa"></button>
+			<button class="color-btn" data-color="#9C27B0" style="background:#9C27B0;" aria-label="Viola"></button>
+		</div>
+	</div>
+	
+	
+	<!-- GRUPPO: Esporta e cerca -->
+	<div class="tool-group" role="group" aria-label="Esporta e cerca">
+		<span class="group-label">Altro</span>
+		<div class="group-row">
+			
+			<select id="export-select" aria-label="Esporta in formato" title="Esporta mappa">
+			  <option value="">📥 Esporta...</option>
+			  <option value="png">PNG (immagine)</option>
+			  <option value="svg">SVG (vettoriale)</option>
+			  <option value="pdf">PDF</option>
+			  <option value="md">Markdown / testo</option>
+			</select>
+			<input type="search" id="search-input" placeholder="🔍 Cerca..." aria-label="Cerca nei nodi">
+		</div>
+	</div>
+
+	<!-- GRUPPO: Accessibilità -->
+	<div class="tool-group" role="group" aria-label="Accessibilità">
+		<span class="group-label">Vista</span>
+		<div class="group-row">
+			<button id="btn-contrast" title="Alto contrasto" aria-label="Attiva alto contrasto">🔲 Contrasto</button>
+			<button id="btn-grid" title="Mostra griglia" aria-label="Mostra griglia di allineamento">⊞ Griglia</button>
+			<button id="btn-low-sensory" title="Tema a basso impatto" aria-label="Attiva tema low-sensory">🌿 Low-sensory</button>
+			<button id="btn-focus-mode" title="Modalità focus" aria-label="Attiva modalità focus">🎯 Focus</button>
+			<button id="btn-read-aloud" title="Leggi nodo" aria-label="Leggi ad alta voce il nodo selezionato">🔊 Leggi</button>
+		</div>
+	</div>
+	
+	
+	<!-- GRUPPO: Formattazione testo -->
+	<div class="tool-group" role="group" aria-label="Formattazione testo">
+		<span class="group-label">Formattazione testo</span>
+		<div class="group-row">
+			<button id="btn-fontsize" title="Font grande" aria-label="Aumenta font">🔤 Font grande</button>
+			<button id="btn-spacing" title="Spaziatura ampia" aria-label="Spaziatura ampia">↔️ Spazio</button>
+			<button id="btn-bold" title="Grassetto (Ctrl+B)" aria-label="Grassetto">𝐁 Grassetto</button>
+			<button id="btn-italic" title="Corsivo (Ctrl+I)" aria-label="Corsivo">𝐼 Corsivo</button>
+			<button id="btn-underline" title="Sottolineato (Ctrl+U)" aria-label="Sottolineato">𝑈̲   Sottolineato </button>
+			<select id="font-select" aria-label="Scegli font" title="Scegli il font da applicare">
+			  <option value="">📖 Font...</option>
+			  <option value="lexend">Lexend (consigliato)</option>
+			  <option value="dyslexic">OpenDyslexic (dislessia)</option>
+			  <option value="verdana">Verdana</option>
+			</select>
+		</div>
+	</div>
+	
+
+
+
+
+	<input type="file" id="file-input" accept=".json,.simplimap" style="display:none;" aria-hidden="true">
+	</div>
+
+    <div id="canvas-container">
+        <svg class="connections" id="connections-svg"></svg>
+        <div id="mindmap-canvas"></div>
+    </div>
+
+    <div class="zoom-controls" role="group" aria-label="Zoom e navigazione">
+        <button id="btn-zoom-in" title="Zoom avanti (+)" aria-label="Zoom avanti">+</button>
+        <button id="btn-zoom-out" title="Zoom indietro (-)" aria-label="Zoom indietro">−</button>
+        <button id="btn-zoom-reset" title="Reset zoom (0)" aria-label="Reset zoom">⟲</button>
+        <button id="btn-center" title="Centra mappa" aria-label="Centra">⌂</button>
+    </div>
+	
+	<button id="btn-help" title="Aiuto" class="help-mascotte" aria-label="Aiuto">❓ Aiuto</button>
+	
+	<div class="markers-panel" id="markers-panel" role="dialog" aria-label="Scegli un marcatore">
+		<h3 style="margin-bottom:10px; color:#2c3e50; font-size:1.1em;">🏷️ Marcatori</h3>
+		<div class="markers-grid">
+			<!-- Marcatori di stato -->
+			<button class="marker-btn" data-icon="⭐" aria-label="Stella">⭐ </button>
+			<button class="marker-btn" data-icon="❗" aria-label="Importante">❗</button>
+			<button class="marker-btn" data-icon="✅" aria-label="Completato">✅</button>
+			<button class="marker-btn" data-icon="❌" aria-label="Da rivedere / Errore">❌</button>
+			<button class="marker-btn" data-icon="⏳" aria-label="In attesa">⏳</button>
+			<button class="marker-btn" data-icon="🔄" aria-label="In corso">🔄</button>
+
+			<!-- Priorità -->
+			<button class="marker-btn" data-icon="1️⃣" aria-label="Priorità 1">1️⃣</button>
+			<button class="marker-btn" data-icon="2️⃣" aria-label="Priorità 2">2️⃣</button>
+			<button class="marker-btn" data-icon="3️⃣" aria-label="Priorità 3">3️⃣</button>
+
+			<!-- Categorie / promemoria -->
+			<button class="marker-btn" data-icon="📌" aria-label="Fissato">📌</button>
+			<button class="marker-btn" data-icon="💡" aria-label="Idea">💡</button>
+			<button class="marker-btn" data-icon="❓" aria-label="Domanda / Dubbio">❓</button>
+			<button class="marker-btn" data-icon="📅" aria-label="Scadenza">📅</button>
+			<button class="marker-btn" data-icon="🔖" aria-label="Segnalibro">🔖</button>
+		</div>
+	</div>
+	
+	
+	<div class="note-panel" id="note-panel" role="dialog" aria-label="Nota del nodo">
+		<h3 style="margin-bottom:10px; color:#2c3e50; font-size:1.1em;">📝 Nota</h3>
+		<textarea id="note-textarea" aria-label="Testo della nota" placeholder="Scrivi qui la tua nota..."></textarea>
+		<div style="display:flex; gap:8px; margin-top:10px; justify-content:flex-end;">
+			<button id="note-save" class="note-action">Salva</button>
+			<button id="note-close" class="note-action">Chiudi</button>
+		</div>
+	</div>
+	
+
+    <div class="help-panel" id="help-panel" role="dialog" aria-labelledby="help-title">
+        <h3 id="help-title">⌨️ Scorciatoie da Tastiera</h3>
+        <ul>
+            <li><kbd>Tab</kbd> - Aggiungi nodo figlio</li>
+            <li><kbd>Enter</kbd> - Aggiungi nodo fratello</li>
+            <li><kbd>Canc</kbd> / <kbd>Backspace</kbd> - Elimina nodo</li>
+            <li><kbd>Ctrl</kbd> + <kbd>N</kbd> - Nuova mappa</li>
+            <li><kbd>Ctrl</kbd> + <kbd>S</kbd> - Salva mappa</li>
+            <li><kbd>Ctrl</kbd> + <kbd>Z</kbd> - Annulla</li>
+            <li><kbd>Ctrl</kbd> + <kbd>B</kbd> - Grassetto</li>
+            <li><kbd>Ctrl</kbd> + <kbd>I</kbd> - Corsivo</li>
+            <li><kbd>Ctrl</kbd> + <kbd>U</kbd> - Sottolineato</li>
+			<li><kbd>Ctrl</kbd> + <kbd>G</kbd> - Graffa / Raggruppa</li>
+            <li><kbd>Frecce</kbd> - Sposta tra nodi</li>
+            <li><kbd>+</kbd> / <kbd>-</kbd> - Zoom avanti/indietro</li>
+            <li><kbd>Spazio</kbd> + trascina - Panoramica</li>
+            <li><kbd>H</kbd> - Mostra/nascondi aiuto</li>
+        </ul>
+    </div>
+
+    <div class="save-notification" id="save-notification" role="status" aria-live="polite">
+        ✓ Mappa salvata con successo!
+    </div>
+
+    <script>
+
+            // IndexedDB Wrapper - Gestione automatica memoria
+            const DB_NAME = 'SimpliMapDB';
+            const DB_VERSION = 1;
+            const STORE_NAME = 'current-map';
+            
+            let dbInstance = null;
+            
+            function openDB() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(DB_NAME, DB_VERSION);
+                    
+                    request.onupgradeneeded = (e) => {
+                        const db = e.target.result;
+                        if (!db.objectStoreNames.contains(STORE_NAME)) {
+                            db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                        }
+                    };
+                    
+                    request.onsuccess = (e) => {
+                        dbInstance = e.target.result;
+                        resolve(dbInstance);
+                    };
+                    
+                    request.onerror = (e) => {
+                        console.error('Errore apertura IndexedDB:', e.target.error);
+                        reject(e.target.error);
+                    };
+                });
+            }
+            
+            async function dbSave(key, data) {
+                if (!dbInstance) await openDB();
+                return new Promise((resolve, reject) => {
+                    const tx = dbInstance.transaction([STORE_NAME], 'readwrite');
+                    const store = tx.objectStore(STORE_NAME);
+                    const request = store.put({ id: key, data: data, savedAt: Date.now() });
+                    
+                    request.onsuccess = () => resolve();
+                    request.onerror = (e) => reject(e.target.error);
+                });
+            }
+            
+            async function dbLoad(key) {
+                if (!dbInstance) await openDB();
+                return new Promise((resolve, reject) => {
+                    const tx = dbInstance.transaction([STORE_NAME], 'readonly');
+                    const store = tx.objectStore(STORE_NAME);
+                    const request = store.get(key);
+                    
+                    request.onsuccess = (e) => resolve(e.target.result?.data || null);
+                    request.onerror = (e) => reject(e.target.error);
+                });
+            }
+            
+            async function dbClear() {
+                if (!dbInstance) await openDB();
+                return new Promise((resolve, reject) => {
+                    const tx = dbInstance.transaction([STORE_NAME], 'readwrite');
+                    const store = tx.objectStore(STORE_NAME);
+                    const request = store.clear();
+                    
+                    request.onsuccess = () => resolve();
+                    request.onerror = (e) => reject(e.target.error);
+                });
+            }
+            
+            // Inizializza DB all'avvio
+            openDB().catch(err => console.error('IndexedDB non disponibile:', err));
+
+
+        // Applicazione Mappa Mentale Accessibile
+        class MindMap {
+            constructor() {
+                this.nodes = [];
+                this.connections = [];
+                this.groups = []; // Gruppi di nodi con graffe
+                this.selectedNode = null;
+                this.selectedNodes = []; // Nodi selezionati multipli (per raggruppa)
+				this.selectedGroup = null; // Graffa/gruppo selezionato
+                this.nodeIdCounter = 0;
+                this.scale = 1;
+                this.panX = 0;
+                this.panY = 0;
+                this.isPanning = false;
+                this.isDragging = false;
+                this.panStartX = 0;
+                this.panStartY = 0;
+                this.currentColor = '#4CAF50';
+                this.undoStack = [];
+
+                this.canvas = document.getElementById('mindmap-canvas');
+                this.svg = document.getElementById('connections-svg');
+
+                this.init();
+            }
+
+            async init() {
+                this.setupEventListeners();
+                await this.loadFromStorage();
+                if (this.nodes.length === 0) {
+                    this.createRootNode();
+                }
+                this.render();
+				this.startAutoSave();
+            }
+
+            setupEventListeners() {
+                // Toolbar buttons
+                document.getElementById('btn-new').addEventListener('click', async () => { await this.newMap(); });
+                document.getElementById('btn-add-child').addEventListener('click', () => this.addChildNode());
+                document.getElementById('btn-add-sibling').addEventListener('click', () => this.addSiblingNode());
+                document.getElementById('btn-delete').addEventListener('click', () => this.deleteNode());			
+				
+				document.getElementById('export-select').addEventListener('change', (e) => {
+				  switch (e.target.value) {
+					case 'png': this.exportAsImage(); break;
+					case 'svg': this.exportAsSVG(); break;
+					case 'pdf': this.exportAsPDF(); break;
+					case 'md':  this.exportAsMarkdown(); break;
+				  }
+				  e.target.value = ''; // reset del menu dopo la scelta
+				});
+				
+				// Raggruppa nodi con graffa
+				document.getElementById('btn-group').addEventListener('click', () => this.createGroup());
+				
+				
+                document.getElementById('btn-help').addEventListener('click', () => {
+                    document.getElementById('help-panel').classList.toggle('visible');
+                });
+				// Pannello marcatori
+				document.getElementById('btn-markers').addEventListener('click', () => {
+					document.getElementById('markers-panel').classList.toggle('visible');
+				});
+				document.querySelectorAll('.marker-btn').forEach(btn => {
+					btn.addEventListener('click', () => {
+						this.toggleIcon(btn.dataset.icon);
+					});
+				});
+				
+				
+				// Pulsante Note nella toolbar
+				document.getElementById('btn-note').addEventListener('click', () => {
+				  if (!this.selectedNode) {
+					alert('Seleziona prima un nodo a cui aggiungere la nota.');
+					return;
+				  }
+				  this.openNotePanel(this.selectedNode);
+				});
+								
+				
+				// Pannello note
+				document.getElementById('note-save').addEventListener('click', () => {
+					if (this.selectedNode) {
+						this.saveState();
+						this.selectedNode.note = document.getElementById('note-textarea').value;
+						this.render();
+						this.selectNode(this.selectedNode, false);
+						this.saveToStorage();
+					}
+					document.getElementById('note-panel').classList.remove('visible');
+				});
+				document.getElementById('note-close').addEventListener('click', () => {
+					document.getElementById('note-panel').classList.remove('visible');
+				});
+				
+				// Ricerca testuale
+				document.getElementById('search-input').addEventListener('input', (e) => {
+					this.searchNodes(e.target.value);
+				});
+				
+				
+				// Salva su file
+				document.getElementById('btn-save-file').addEventListener('click', () => this.saveToFile());
+
+				// Apri file
+				document.getElementById('btn-open-file').addEventListener('click', () => {
+					document.getElementById('file-input').click();
+				});
+				document.getElementById('file-input').addEventListener('change', (e) => {
+					const file = e.target.files[0];
+					if (file) {
+						this.loadFromFile(file);
+						e.target.value = ''; // reset così si può riaprire lo stesso file
+					}
+				});
+				
+				// Salvataggio di sicurezza alla chiusura della pagina
+				window.addEventListener('beforeunload', () => {
+					this.saveToStorage();
+				});
+				
+				// Gestione incolla immagini
+				document.addEventListener('paste', (e) => this.handlePaste(e));
+				
+
+                // Accessibilità
+                document.getElementById('btn-contrast').addEventListener('click', (e) => {
+                    document.body.classList.toggle('high-contrast');
+                    e.currentTarget.classList.toggle('active');
+                });
+                document.getElementById('btn-fontsize').addEventListener('click', (e) => {
+                    document.body.classList.toggle('large-font');
+                    e.currentTarget.classList.toggle('active');
+                    this.render();
+                });
+                document.getElementById('btn-spacing').addEventListener('click', (e) => {
+                    // Cicla tra i livelli di spaziatura: 0 → 1 → 2 → 3 → 0
+                    const body = document.body;
+                    const levels = ['spacing-level-1', 'spacing-level-2', 'spacing-level-3'];
+                    let currentLevel = -1;
+                    levels.forEach((lvl, idx) => {
+                        if (body.classList.contains(lvl)) currentLevel = idx;
+                        body.classList.remove(lvl);
+                    });
+                    const nextLevel = currentLevel + 1;
+                    if (nextLevel < levels.length) {
+                        body.classList.add(levels[nextLevel]);
+                        e.currentTarget.textContent = `↔️ Spazio ${nextLevel + 1}`;
+                    } else {
+                        e.currentTarget.textContent = '↔️ Spazio';
+                    }
+                    this.render();
+                });
+                
+                // Selezione Font
+                document.getElementById('font-select').addEventListener('change', (e) => {
+                    const font = e.target.value;
+                    document.body.classList.remove('font-lexend', 'font-dyslexic', 'font-verdana');
+                    if (font) {
+                        document.body.classList.add('font-' + font.toLowerCase());
+                    }
+                    // Forza il re-render dei nodi per applicare il nuovo font
+                    const canvas = document.getElementById('mindmap-canvas');
+                    if (canvas) {
+                        canvas.innerHTML = '';
+                        this.nodes.forEach(node => {
+                            const nodeEl = this.createNodeElement(node);
+                            canvas.appendChild(nodeEl);
+                        });
+                        this.renderConnections();
+                    }
+                });
+                
+                // Griglia di allineamento
+                document.getElementById('btn-grid').addEventListener('click', (e) => {
+                    document.body.classList.toggle('show-grid');
+                    e.currentTarget.classList.toggle('active');
+                });
+                
+                // Tema low-sensory
+                document.getElementById('btn-low-sensory').addEventListener('click', (e) => {
+                    document.body.classList.toggle('low-sensory');
+                    e.currentTarget.classList.toggle('active');
+					this.render(); // ricalcola colori di nodi e collegamenti
+                });
+                
+                // Focus mode per ADHD
+                document.getElementById('btn-focus-mode').addEventListener('click', (e) => {
+                    document.body.classList.toggle('focus-mode');
+                    e.currentTarget.classList.toggle('active');
+                    if (this.selectedNode) {
+                        this.updateRelatedNodes();
+                    }
+                    this.renderConnections();
+                });
+                
+                // Lettura vocale nodo selezionato
+                document.getElementById('btn-read-aloud').addEventListener('click', () => {
+                    this.readNodeText();
+                });
+                
+                // Formattazione testo: Grassetto
+                document.getElementById('btn-bold').addEventListener('click', () => {
+                    this.formatTextSelection('bold');
+                });
+                
+                // Formattazione testo: Corsivo
+                document.getElementById('btn-italic').addEventListener('click', () => {
+                    this.formatTextSelection('italic');
+                });
+                
+                // Formattazione testo: Sottolineato
+                document.getElementById('btn-underline').addEventListener('click', () => {
+                    this.formatTextSelection('underline');
+                });
+
+                // Color picker
+                document.querySelectorAll('.color-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+                        e.target.classList.add('active');
+                        this.currentColor = e.target.dataset.color;
+                        if (this.selectedNode && !this.selectedNode.isRoot) {
+                            this.saveState();
+                            this.selectedNode.color = this.currentColor;
+                            // Aggiorna anche il colore delle connessioni verso questo nodo
+                            this.connections.forEach(c => {
+                                if (c.to === this.selectedNode.id) c.color = this.currentColor;
+                            });
+                            this.render();
+                            this.saveToStorage();
+                        }
+                    });
+                });
+
+                // Zoom controls
+                document.getElementById('btn-zoom-in').addEventListener('click', () => this.zoom(0.2));
+                document.getElementById('btn-zoom-out').addEventListener('click', () => this.zoom(-0.2));
+                document.getElementById('btn-zoom-reset').addEventListener('click', () => this.resetZoom());
+                document.getElementById('btn-center').addEventListener('click', () => this.centerMap());
+
+                // Keyboard shortcuts
+                document.addEventListener('keydown', (e) => this.handleKeyboard(e));
+
+                // Pan con mouse (sul container, non sul canvas)
+                const container = document.getElementById('canvas-container');
+                container.addEventListener('mousedown', (e) => this.startPan(e));
+                document.addEventListener('mousemove', (e) => this.doPan(e));
+                document.addEventListener('mouseup', () => this.endPan());
+				// Zoom con la rotella del mouse
+				container.addEventListener('wheel', (e) => this.handleWheelZoom(e), { passive: false });
+
+                // Touch support
+                container.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
+                container.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
+                container.addEventListener('touchend', () => this.endPan());
+
+                // Ricalcola centro al ridimensionamento finestra
+                window.addEventListener('resize', () => this.render());
+            }
+
+            handleKeyboard(e) {
+                // Help toggle (solo se non si sta scrivendo)
+                if ((e.key === 'h' || e.key === 'H') && e.target.tagName !== 'TEXTAREA') {
+                    document.getElementById('help-panel').classList.toggle('visible');
+                    return;
+                }
+
+                // Se si sta modificando testo in un nodo contenteditable
+                const activeContent = document.activeElement;
+                if (activeContent && activeContent.classList.contains('node-content')) {
+                    // Lascia gestire i tasti al contenteditable stesso
+                    // Ctrl+S per salvare durante la scrittura
+                    if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+                        e.preventDefault();
+                        this.saveToFile();
+                    }
+                    return;
+                }
+
+                // Se si sta modificando testo in un textarea (note panel, search, etc.)
+                if (e.target.tagName === 'TEXTAREA') {
+                    if (e.key === 'Tab' && !e.shiftKey) {
+                        e.preventDefault();
+                        e.target.blur();
+                        this.addChildNode();
+                        return;
+                    }
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        e.target.blur();
+                        this.addSiblingNode();
+                        return;
+                    }
+                    // Ctrl+S anche durante la scrittura
+                    if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+                        e.preventDefault();
+                        this.saveToFile();
+                    }
+                    return;
+                }
+
+                switch (e.key) {
+                    case 'Tab':
+                        e.preventDefault();
+                        this.addChildNode();
+                        break;
+                    case 'Enter':
+                        e.preventDefault();
+                        this.addSiblingNode();
+                        break;
+                    case 'Delete':
+                    case 'Backspace':
+						e.preventDefault();
+						if (this.selectedGroup) {
+							this.deleteGroup(this.selectedGroup);
+						} else {
+							this.deleteNode();
+						}
+                        break;
+                    case 'n':
+                    case 'N':
+                        if (e.ctrlKey || e.metaKey) {
+                            e.preventDefault();
+                            this.newMap();
+                        }
+                        break;
+                    case 's':
+                    case 'S':
+						if (e.ctrlKey || e.metaKey) {
+							e.preventDefault();
+							this.saveToFile(); 
+						}
+						break;
+                    case 'z':
+                    case 'Z':
+                        if (e.ctrlKey || e.metaKey) {
+                            e.preventDefault();
+                            this.undo();
+                        }
+                        break;
+                    case 'g':
+                    case 'G':
+                        if (e.ctrlKey || e.metaKey) {
+                            e.preventDefault();
+                            this.createGroup();
+                        }
+                        break;
+                    case 'b':
+                    case 'B':
+                        if (e.ctrlKey || e.metaKey) {
+                            // Solo se c'è un elemento con focus che non è un input/search
+                            const active = document.activeElement;
+                            if (active && active.classList.contains('node-content')) {
+                                e.preventDefault();
+                                this.formatTextSelection('bold');
+                            }
+                        }
+                        break;
+                    case 'i':
+                    case 'I':
+                        if (e.ctrlKey || e.metaKey) {
+                            const active = document.activeElement;
+                            if (active && active.classList.contains('node-content')) {
+                                e.preventDefault();
+                                this.formatTextSelection('italic');
+                            }
+                        }
+                        break;
+                    case 'u':
+                    case 'U':
+                        if (e.ctrlKey || e.metaKey) {
+                            const active = document.activeElement;
+                            if (active && active.classList.contains('node-content')) {
+                                e.preventDefault();
+                                this.formatTextSelection('underline');
+                            }
+                        }
+                        break;
+                    case '+':
+                    case '=':
+                        e.preventDefault();
+                        this.zoom(0.2);
+                        break;
+                    case '-':
+                        e.preventDefault();
+                        this.zoom(-0.2);
+                        break;
+                    case '0':
+                        e.preventDefault();
+                        this.resetZoom();
+                        break;
+                    case 'ArrowUp':
+                        e.preventDefault();
+                        this.navigateNodes('up');
+                        break;
+                    case 'ArrowDown':
+                        e.preventDefault();
+                        this.navigateNodes('down');
+                        break;
+                    case 'ArrowLeft':
+                        e.preventDefault();
+                        this.navigateNodes('left');
+                        break;
+                    case 'ArrowRight':
+                        e.preventDefault();
+                        this.navigateNodes('right');
+                        break;
+                }
+            }
+
+            createRootNode() {
+                const root = {
+                    id: this.nodeIdCounter++,
+                    text: 'Idea Centrale',
+                    x: window.innerWidth / 2 - 100,
+                    y: window.innerHeight / 2 - 50,
+                    width: 200,
+                    height: 60,
+                    color: '#3498db',
+                    isRoot: true,
+                    parentId: null,
+                    childrenCount: 0,
+                    icons: [],
+					collapsed: false,
+					note: '',
+					manualResize: false
+                };
+                this.nodes.push(root);
+                this.selectedNode = root;
+            }
+
+            addChildNode() {
+                if (!this.selectedNode) return;
+                this.saveState();
+
+                const parent = this.selectedNode;
+                const count = parent.childrenCount || 0;
+                const angle = count * 45 - 90;
+                const distance = 200;
+                const radians = angle * Math.PI / 180;
+
+                const child = {
+                    id: this.nodeIdCounter++,
+                    text: 'Nuovo Nodo',
+                    x: parent.x + Math.cos(radians) * distance,
+                    y: parent.y + Math.sin(radians) * distance + 100,
+                    width: 150,
+                    height: 50,
+                    color: this.currentColor,
+                    isRoot: false,
+                    parentId: parent.id,
+                    childrenCount: 0,
+                    icons: [],
+					collapsed: false,
+					note: '',
+					manualResize: false
+                };
+
+                parent.childrenCount = count + 1;
+                this.nodes.push(child);
+                this.connections.push({ from: parent.id, to: child.id, color: this.currentColor });
+                this.selectedNode = child;
+                this.render();
+                this.focusNode(child);
+                this.saveToStorage();
+            }
+
+            addSiblingNode() {
+                if (!this.selectedNode || this.selectedNode.isRoot) return;
+                this.saveState();
+
+                const sibling = this.selectedNode;
+                const parent = this.nodes.find(n => n.id === sibling.parentId);
+                if (!parent) return;
+
+                const newSibling = {
+                    id: this.nodeIdCounter++,
+                    text: 'Nuovo Nodo',
+                    x: sibling.x,
+                    y: sibling.y + 80,
+                    width: 150,
+                    height: 50,
+                    color: sibling.color,
+                    isRoot: false,
+                    parentId: sibling.parentId,
+                    childrenCount: 0,
+                    icons: [],
+					collapsed: false,
+					note: '',
+					manualResize: false
+                };
+
+                parent.childrenCount = (parent.childrenCount || 0) + 1;
+                this.nodes.push(newSibling);
+                this.connections.push({ from: parent.id, to: newSibling.id, color: sibling.color });
+                this.selectedNode = newSibling;
+                this.render();
+                this.focusNode(newSibling);
+                this.saveToStorage();
+            }
+
+            deleteNode() {
+                if (!this.selectedNode || this.selectedNode.isRoot) return;
+                this.saveState();
+
+                const idToDelete = this.selectedNode.id;
+                const parentId = this.selectedNode.parentId; // salvato PRIMA del filtro
+
+                const descendants = this.getDescendants(idToDelete);
+                const idsToDelete = [idToDelete, ...descendants.map(n => n.id)];
+
+                                this.nodes = this.nodes.filter(n => !idsToDelete.includes(n.id));
+                this.connections = this.connections.filter(c =>
+                    !idsToDelete.includes(c.from) && !idsToDelete.includes(c.to)
+                );
+                
+                // Rimuovi gruppi che contengono nodi eliminati
+                this.groups = this.groups.filter(g => {
+                    g.nodeIds = g.nodeIds.filter(id => !idsToDelete.includes(id));
+                    return g.nodeIds.length >= 2; // Mantieni solo gruppi con 2+ nodi
+                });
+
+                const parent = this.nodes.find(n => n.id === parentId);
+                this.selectedNode = parent || this.nodes.find(n => n.isRoot) || null;
+
+                this.render();
+                this.saveToStorage();
+            }
+
+            getDescendants(nodeId) {
+                const children = this.nodes.filter(n => n.parentId === nodeId);
+                let descendants = [...children];
+                children.forEach(child => {
+                    descendants = [...descendants, ...this.getDescendants(child.id)];
+                });
+                return descendants;
+            }
+			
+			
+			isNodeHidden(node) {
+				let current = this.nodes.find(n => n.id === node.parentId);
+				while (current) {
+					if (current.collapsed) return true;
+					current = this.nodes.find(n => n.id === current.parentId);
+				}
+				return false;
+			}
+			
+			// Restituisce la font-family da usare negli export, in base al font attivo
+			getActiveFontFamily() {
+			  const body = document.body;
+			  if (body.classList.contains('font-dyslexic')) {
+				return "'OpenDyslexic', 'Verdana', sans-serif";
+			  }
+			  if (body.classList.contains('font-lexend')) {
+				return "'Lexend', sans-serif";
+			  }
+			  if (body.classList.contains('font-verdana')) {
+				return "'Verdana', 'Arial', sans-serif";
+			  }
+			  // Default dell'app (nessuna classe font-* attiva)
+			  return "'Lexend', 'Verdana', 'Arial', sans-serif";
+			}
+			
+			
+
+            saveState() {
+                if (this.undoStack.length >= 10) {
+                    this.undoStack.shift();
+                }
+                this.undoStack.push(JSON.stringify({
+                    nodes: this.nodes,
+                    connections: this.connections,
+                    groups: this.groups,
+                    nodeIdCounter: this.nodeIdCounter
+                }));
+            }
+
+            undo() {
+                if (this.undoStack.length === 0) return;
+
+                const state = JSON.parse(this.undoStack.pop());
+                this.nodes = state.nodes;
+                this.connections = state.connections;
+                this.groups = state.groups || [];
+                this.nodeIdCounter = state.nodeIdCounter;
+                this.selectedNode = this.nodes.find(n => n.isRoot) || null;
+                this.render();
+                this.saveToStorage();
+            }
+
+			navigateNodes(direction) {
+				if (!this.selectedNode) return;
+				const current = this.selectedNode;
+				const visible = this.nodes.filter(n => !this.isNodeHidden(n));
+				let next = null;
+
+				switch (direction) {
+					case 'up':
+						next = visible.find(n => n.id === current.parentId) ||
+							   visible.filter(n => n.y < current.y && n.id !== current.id)
+									  .sort((a, b) => b.y - a.y)[0];
+						break;
+					case 'down': {
+						const children = visible.filter(n => n.parentId === current.id);
+						if (children.length > 0) {
+							next = children[0];
+						} else {
+							next = visible.filter(n => n.y > current.y && n.id !== current.id)
+										  .sort((a, b) => a.y - b.y)[0];
+						}
+						break;
+					}
+					case 'left':
+						next = visible.filter(n => n.x < current.x && n.id !== current.id)
+									  .sort((a, b) => b.x - a.x)[0];
+						break;
+					case 'right':
+						next = visible.filter(n => n.x > current.x && n.id !== current.id)
+									  .sort((a, b) => a.x - b.x)[0];
+						break;
+				}
+
+				if (next) {
+					this.selectedNode = next;
+					this.render();
+					this.focusNode(next);
+				}
+			}
+
+			focusNode(node) {
+				requestAnimationFrame(() => {
+					const content = document.querySelector(`[data-node-id="${node.id}"] .node-content`);
+					if (content) {
+						content.focus();
+						// Seleziona tutto il testo del contenteditable
+						const range = document.createRange();
+						range.selectNodeContents(content);
+						const sel = window.getSelection();
+						sel.removeAllRanges();
+						sel.addRange(range);
+					}
+				});
+			}
+			
+			toggleCollapse(node) {
+				if (!this.getDescendants(node.id).length) return;
+				this.saveState();
+				node.collapsed = !node.collapsed;
+				this.render();
+				this.saveToStorage();
+			}
+			
+			toggleIcon(icon) {
+				if (!this.selectedNode) {
+					alert('Seleziona prima un nodo a cui aggiungere il marcatore.');
+					return;
+				}
+				this.saveState();
+				if (!this.selectedNode.icons) this.selectedNode.icons = [];
+				const index = this.selectedNode.icons.indexOf(icon);
+				if (index === -1) {
+					this.selectedNode.icons.push(icon);   // aggiunge il marcatore
+				} else {
+					this.selectedNode.icons.splice(index, 1); // lo rimuove se già presente (toggle)
+				}
+				this.render();
+				this.selectNode(this.selectedNode, false); // mantiene la selezione visiva
+				this.saveToStorage();
+			}
+			
+			openNotePanel(node) {
+				this.selectedNode = node;
+				const panel = document.getElementById('note-panel');
+				const textarea = document.getElementById('note-textarea');
+				textarea.value = node.note || '';
+				panel.classList.add('visible');
+				textarea.focus();
+			}
+			
+			// Lettura vocale del nodo selezionato (TTS per dislessia)
+			readNodeText() {
+				if (!this.selectedNode) {
+					alert('Seleziona un nodo da leggere.');
+					return;
+				}
+				if (!window.speechSynthesis) {
+					alert('Il tuo browser non supporta la sintesi vocale.');
+					return;
+				}
+				// Annulla eventuali letture in corso
+				window.speechSynthesis.cancel();
+
+				// Rimuovi i marcatori Markdown e le immagini prima della lettura
+				const plainText = (this.selectedNode.text || '')
+					.replace(/\*\*(.+?)\*\*/g, '$1')  // grassetto
+					.replace(/\*(.+?)\*/g, '$1')      // corsivo
+					.replace(/__(.+?)__/g, '$1')      // sottolineato
+					.replace(/<img[^>]*>/g, '')       // rimuovi tag immagine
+					.replace(/\n/g, ' ');             // a capo → spazio
+
+				const utterance = new SpeechSynthesisUtterance(plainText);
+				utterance.lang = 'it-IT';
+				utterance.rate = 0.9;
+				utterance.pitch = 1;
+				window.speechSynthesis.speak(utterance);
+			}
+			
+			// Converte Markdown in HTML per il rendering
+			parseMarkdownToHtml(text) {
+				if (!text) return '';
+				let html = text;
+				// Grassetto: **testo** → <strong>testo</strong>
+				html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+				// Corsivo: *testo* → <em>testo</em> (ma non **testo**)
+				html = html.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
+				// Sottolineato: __testo__ → <u>testo</u>
+				html = html.replace(/__(.+?)__/g, '<u>$1</u>');
+				// A capo: \n → <br> (ma non dentro tag <img>)
+				// Dividi per righe e gestisci separatamente
+				const lines = html.split('\n');
+				html = lines.map(line => {
+					// Se la linea contiene un'immagine <img>, non aggiungere <br>
+					if (line.includes('<img')) {
+						return line;
+					}
+					return line;
+				}).join('<br>');
+				return html;
+			}
+			
+			// Converte HTML in Markdown per il salvataggio
+			parseHtmlToMarkdown(html) {
+				if (!html) return '';
+				let md = html;
+				// <strong>testo</strong> → **testo**
+				md = md.replace(/<strong>(.+?)<\/strong>/g, '**$1**');
+				// <b>testo</b> → **testo**
+				md = md.replace(/<b>(.+?)<\/b>/g, '**$1**');
+				// <em>testo</em> → *testo*
+				md = md.replace(/<em>(.+?)<\/em>/g, '*$1*');
+				// <i>testo</i> → *testo*
+				md = md.replace(/<i>(.+?)<\/i>/g, '*$1*');
+				// <u>testo</u> → __testo__
+				md = md.replace(/<u>(.+?)<\/u>/g, '__$1__');
+				// <br> → \n
+				md = md.replace(/<br\s*\/?>/g, '\n');
+				// Preserva le immagini come HTML (non convertirle in testo)
+				// Le immagini <img src="data:..."> rimangono nel Markdown
+				// Rimuovi solo altri tag non desiderati, ma NON i tag <img>
+				md = md.replace(/<(?!img[^>]*>)[^>]+>/g, '');
+				return md;
+			}
+			
+			// Formatta il testo selezionato nel contenteditable (grassetto, corsivo, sottolineato)
+			formatTextSelection(formatType) {
+				let content = document.activeElement;
+				
+				// Se il focus non è su un node-content, prova a trovare quello del nodo selezionato
+				if (!content || !content.classList.contains('node-content')) {
+					if (this.selectedNode) {
+						const nodeEl = this.canvas.querySelector(`[data-node-id="${this.selectedNode.id}"]`);
+						if (nodeEl) {
+							content = nodeEl.querySelector('.node-content');
+							if (content) content.focus();
+						}
+					}
+				}
+				
+				// Ancora nulla? Esci
+				if (!content || !content.classList.contains('node-content')) {
+					return;
+				}
+				
+				// Usa execCommand per applicare la formattazione rich-text
+				const command = formatType === 'underline' ? 'underline' : formatType;
+				document.execCommand(command, false, null);
+				
+				// Aggiorna il nodo con la conversione HTML → Markdown
+				const nodeId = content.closest('.node').dataset.nodeId;
+				const node = this.nodes.find(n => n.id == nodeId);
+				if (node) {
+					node.text = this.parseHtmlToMarkdown(content.innerHTML);
+					this.saveToStorage();
+				}
+			}
+			
+			// Aggiorna i nodi correlati per focus-mode (ADHD)
+			updateRelatedNodes() {
+				const body = document.body;
+				if (!body.classList.contains('focus-mode')) {
+					// Rimuovi evidenziazione se focus-mode è disattivo
+					this.canvas.querySelectorAll('.node.is-related').forEach(el => {
+						el.classList.remove('is-related');
+					});
+					return;
+				}
+				
+				// Rimuovi vecchia evidenziazione
+				this.canvas.querySelectorAll('.node.is-related').forEach(el => {
+					el.classList.remove('is-related');
+				});
+				
+				if (!this.selectedNode) return;
+				
+				// Evidenzia: genitore, figli, fratelli
+				const relatedIds = [this.selectedNode.id];
+				
+				// Aggiungi genitore
+				if (this.selectedNode.parentId) {
+					relatedIds.push(this.selectedNode.parentId);
+				}
+				
+				// Aggiungi figli
+				const children = this.nodes.filter(n => n.parentId === this.selectedNode.id);
+				children.forEach(child => relatedIds.push(child.id));
+				
+				// Aggiungi fratelli (stesso genitore)
+				if (this.selectedNode.parentId) {
+					const siblings = this.nodes.filter(n => n.parentId === this.selectedNode.parentId && n.id !== this.selectedNode.id);
+					siblings.forEach(sib => relatedIds.push(sib.id));
+				}
+				
+				// Aggiungi classe is-related agli elementi correlati
+				relatedIds.forEach(id => {
+					const el = this.canvas.querySelector(`[data-node-id="${id}"]`);
+					if (el && id !== this.selectedNode.id) {
+						el.classList.add('is-related');
+					}
+				});
+			}
+			
+			// Gestisce incolla di immagini (da file o screenshot)
+			handlePaste(e) {
+				const items = e.clipboardData?.items;
+				if (!items) return;
+				
+				// Cerca immagini nei dati incollati
+				for (let i = 0; i < items.length; i++) {
+					if (items[i].type.startsWith('image/')) {
+						e.preventDefault();
+						const blob = items[i].getAsFile();
+						const reader = new FileReader();
+						reader.onload = (event) => {
+							const imgData = event.target.result;
+							
+							// Inserisci immagine nel contenteditable del nodo selezionato
+							const content = document.activeElement;
+							if (content && content.classList.contains('node-content')) {
+								content.focus();
+								document.execCommand('insertImage', false, imgData);
+								
+								// Forza ridimensionamento dopo che l'immagine è stata inserita
+								setTimeout(() => {
+									this.autoResizeTextarea(content);
+									const nodeEl = content.closest('.node');
+									if (nodeEl) {
+										const nodeId = nodeEl.dataset.nodeId;
+										const node = this.nodes.find(n => n.id == nodeId);
+										if (node) {
+											node.width = nodeEl.offsetWidth;
+											node.height = nodeEl.offsetHeight;
+											this.renderConnections();
+											this.saveToStorage();
+										}
+									}
+								}, 150);
+							}
+						};
+						reader.readAsDataURL(blob);
+						return;
+					}
+				}
+			}
+			
+			// Crea un gruppo di nodi con graffa
+			createGroup() {
+				// Se non ci sono nodi selezionati multipli, usa il nodo selezionato corrente
+				let nodesToGroup = this.selectedNodes.length > 0 ? this.selectedNodes : [];
+				
+				// Se c'è solo il nodo selezionato corrente, aggiungi anche i suoi fratelli
+				if (nodesToGroup.length === 0 && this.selectedNode && !this.selectedNode.isRoot) {
+					const parent = this.nodes.find(n => n.id === this.selectedNode.parentId);
+					if (parent) {
+						nodesToGroup = this.nodes.filter(n => n.parentId === parent.id);
+					}
+				}
+				
+				// Serve almeno 2 nodi
+				if (nodesToGroup.length < 2) {
+					alert('Seleziona almeno 2 nodi da raggruppare (Ctrl+click per selezione multipla).');
+					return;
+				}
+				
+				// Calcola bounding box del gruppo
+				const minX = Math.min(...nodesToGroup.map(n => n.x));
+				const maxX = Math.max(...nodesToGroup.map(n => n.x + n.width));
+				const minY = Math.min(...nodesToGroup.map(n => n.y));
+				const maxY = Math.max(...nodesToGroup.map(n => n.y + n.height));
+				
+				// Posiziona la graffa a destra del gruppo
+				const braceX = maxX + 20;
+				const braceY = minY;
+				const braceHeight = maxY - minY;
+				
+				// Crea il gruppo
+				const group = {
+					id: 'group-' + Date.now(),
+					nodeIds: nodesToGroup.map(n => n.id),
+					label: 'Gruppo',
+					x: braceX,
+					y: braceY,
+					height: braceHeight,
+					color: nodesToGroup[0].color || '#333'
+				};
+				
+				this.saveState();
+				this.groups.push(group);
+				this.render();
+				this.saveToStorage();
+				
+				// Deseleziona i nodi dopo aver creato il gruppo
+				this.selectedNodes = [];
+				this.render();
+			}
+			
+			// Renderizza le graffe dei gruppi
+			renderGroups() {
+				// Le graffe sono disegnate come path SVG nel renderConnections
+			}
+			
+			// Aggiorna la posizione di un gruppo quando i nodi si muovono
+			updateGroupPosition(group) {
+				const groupNodes = this.nodes.filter(n => group.nodeIds.includes(n.id) && !this.isNodeHidden(n));
+				if (groupNodes.length < 2) return;
+				
+				const minX = Math.min(...groupNodes.map(n => n.x));
+				const maxX = Math.max(...groupNodes.map(n => n.x + n.width));
+				const minY = Math.min(...groupNodes.map(n => n.y));
+				const maxY = Math.max(...groupNodes.map(n => n.y + n.height));
+				
+				group.x = maxX + 20;
+				group.y = minY;
+				group.height = maxY - minY;
+			}
+			
+			
+			searchNodes(query) {
+				const term = query.trim().toLowerCase();
+
+				// Rimuovi evidenziazioni precedenti
+				this.canvas.querySelectorAll('.node.search-match')
+					.forEach(el => el.classList.remove('search-match'));
+
+				if (!term) return;
+
+				const matches = this.nodes.filter(n => {
+					const inText = (n.text || '').toLowerCase().includes(term);
+					const inNote = (n.note || '').toLowerCase().includes(term);
+					return inText || inNote;
+				});
+
+				if (matches.length === 0) return;
+
+				// Se il primo risultato è dentro un ramo collassato, espandi gli antenati
+				let needRender = false;
+				matches.forEach(match => {
+					let parent = this.nodes.find(n => n.id === match.parentId);
+					while (parent) {
+						if (parent.collapsed) { parent.collapsed = false; needRender = true; }
+						parent = this.nodes.find(n => n.id === parent.parentId);
+					}
+				});
+				if (needRender) this.render();
+
+				// Evidenzia tutti i risultati
+				matches.forEach(match => {
+					const el = this.canvas.querySelector(`[data-node-id="${match.id}"]`);
+					if (el) el.classList.add('search-match');
+				});
+
+				// Centra la mappa sul primo risultato
+				this.centerOnNode(matches[0]);
+			}
+			
+			// Chiama updateRelatedNodes quando si seleziona un nodo (per focus-mode)
+			selectNode(node, refocus = true) {
+				this.selectedNode = node;
+				// Aggiorna solo la classe .focused senza ricreare i nodi
+				this.canvas.querySelectorAll('.node').forEach(el => {
+					if (el.dataset.nodeId == node.id) {
+						el.classList.add('focused');
+					} else {
+						el.classList.remove('focused');
+					}
+				});
+				// Aggiorna il colore attivo nella toolbar in base al nodo selezionato
+				if (!node.isRoot) {
+					document.querySelectorAll('.color-btn').forEach(b => {
+						b.classList.toggle('active', b.dataset.color === node.color);
+					});
+				}
+				// Aggiorna nodi correlati per focus-mode
+				this.updateRelatedNodes();
+				// Ridisegna connessioni per focus-mode
+				this.renderConnections();
+			}
+
+			centerOnNode(node) {
+				this.panX = (window.innerWidth / 2) - (node.x * this.scale) - (node.width * this.scale / 2);
+				this.panY = ((window.innerHeight - 60) / 2) - (node.y * this.scale) - (node.height * this.scale / 2);
+				this.updateTransform();
+			}
+			
+			
+			
+			autoResizeTextarea(textarea) {
+			  // Se il nodo è stato ridimensionato manualmente, non forzare l'altezza automatica
+			  const nodeEl = textarea.closest('.node');
+			  if (nodeEl) {
+				const nodeId = nodeEl.dataset.nodeId;
+				const node = this.nodes.find(n => n.id == nodeId);
+				if (node && node.manualResize) return;
+			  }
+			  textarea.style.height = 'auto';
+			  textarea.style.height = textarea.scrollHeight + 'px';
+			}
+
+            startPan(e) {
+                // Non fare pan se si clicca su un nodo o si sta trascinando
+               if (this.isDragging || e.target.closest('.node')) return;
+			   if (!e.target.classList.contains('group-brace') && !e.target.classList.contains('group-label')) {
+					this.selectedGroup = null;
+					this.svg.querySelectorAll('.group-brace').forEach(el => {
+						el.setAttribute('stroke-width', '3');
+						el.style.filter = '';
+					});
+				}				
+
+                this.isPanning = true;
+                this.panStartX = e.clientX - this.panX;
+                this.panStartY = e.clientY - this.panY;
+                document.getElementById('canvas-container').style.cursor = 'grabbing';
+            }
+
+            doPan(e) {
+                if (!this.isPanning) return;
+                e.preventDefault();
+                this.panX = e.clientX - this.panStartX;
+                this.panY = e.clientY - this.panStartY;
+                this.updateTransform();
+            }
+
+            endPan() {
+                this.isPanning = false;
+                document.getElementById('canvas-container').style.cursor = 'default';
+            }
+
+            handleTouchStart(e) {
+                if (this.isDragging || e.target.closest('.node')) return;
+                if (e.touches.length === 1) {
+                    const touch = e.touches[0];
+                    this.isPanning = true;
+                    this.panStartX = touch.clientX - this.panX;
+                    this.panStartY = touch.clientY - this.panY;
+                }
+            }
+
+            handleTouchMove(e) {
+                if (!this.isPanning || e.touches.length !== 1) return;
+                e.preventDefault();
+                const touch = e.touches[0];
+                this.panX = touch.clientX - this.panStartX;
+                this.panY = touch.clientY - this.panStartY;
+                this.updateTransform();
+            }
+
+            zoom(delta) {
+                this.scale = Math.max(0.3, Math.min(3, this.scale + delta));
+                this.updateTransform();
+            }
+			
+			handleWheelZoom(e) {
+				// Evita lo scroll della pagina
+				e.preventDefault();
+
+				// Direzione della rotella: su = zoom avanti, giù = zoom indietro
+				const delta = e.deltaY < 0 ? 0.1 : -0.1;
+				const oldScale = this.scale;
+				const newScale = Math.max(0.3, Math.min(3, oldScale + delta));
+
+				// Se lo zoom non cambia (già al limite), non fare nulla
+				if (newScale === oldScale) return;
+
+				// Coordinate del mouse rispetto al contenitore
+				const rect = document.getElementById('canvas-container').getBoundingClientRect();
+				const mouseX = e.clientX - rect.left;
+				const mouseY = e.clientY - rect.top;
+
+				// Mantiene fermo il punto sotto il cursore durante lo zoom
+				// (converte il punto schermo in coordinate del canvas, poi riposiziona il pan)
+				const canvasX = (mouseX - this.panX) / oldScale;
+				const canvasY = (mouseY - this.panY) / oldScale;
+
+				this.scale = newScale;
+				this.panX = mouseX - canvasX * newScale;
+				this.panY = mouseY - canvasY * newScale;
+
+				this.updateTransform();
+			}
+			
+
+            resetZoom() {
+                this.scale = 1;
+                this.panX = 0;
+                this.panY = 0;
+                this.updateTransform();
+            }
+
+            centerMap() {
+                const root = this.nodes.find(n => n.isRoot);
+                if (root) {
+                    this.panX = (window.innerWidth / 2) - (root.x * this.scale) - (root.width * this.scale / 2);
+                    this.panY = ((window.innerHeight - 60) / 2) - (root.y * this.scale) - (root.height * this.scale / 2);
+                    this.updateTransform();
+                }
+            }
+
+            updateTransform() {
+                const transform = `translate(${this.panX}px, ${this.panY}px) scale(${this.scale})`;
+                this.canvas.style.transform = transform;
+                this.svg.style.transform = transform;
+            }
+
+			render() {
+				this.canvas.innerHTML = '';
+				this.nodes.forEach(node => {
+					if (this.isNodeHidden(node)) return;  
+					const nodeEl = this.createNodeElement(node);
+					this.canvas.appendChild(nodeEl);
+				});
+
+				// Ridimensiona textarea e aggiorna dimensioni reali
+				// Doppio requestAnimationFrame per dare tempo a immagini e formattazione di caricarsi
+				requestAnimationFrame(() => {
+					this.nodes.forEach(node => {
+						const el = this.canvas.querySelector(`[data-node-id="${node.id}"]`);
+						if (el) {
+							const content = el.querySelector('.node-content');
+							if (content) this.autoResizeTextarea(content);
+						}
+					});
+					// Seconda passata: calcola dimensioni finali dopo rendering completo
+					requestAnimationFrame(() => {
+						this.nodes.forEach(node => {
+							const el = this.canvas.querySelector(`[data-node-id="${node.id}"]`);
+							if (el) {
+								node.width = el.offsetWidth;
+								node.height = el.offsetHeight;
+							}
+						});
+						this.updateRelatedNodes();
+						this.renderConnections();
+					});
+				});
+			}
+
+			createNodeElement(node) {
+				const div = document.createElement('div');
+				div.className = `node${node.isRoot ? ' root' : ''}${this.selectedNode && this.selectedNode.id === node.id ? ' focused' : ''}`;
+				div.dataset.nodeId = node.id;
+				div.style.left = `${node.x}px`;
+				div.style.top = `${node.y}px`;
+				const nodeColor = this.effectiveColor(node.color);
+				div.style.borderColor = nodeColor;
+				if (!node.isRoot) {
+					div.style.background = this.hexToSoft(node.color, 0.85);
+				}
+				div.tabIndex = 0;
+				div.setAttribute('role', 'button');
+				div.setAttribute('aria-label', `Nodo: ${node.text}`);
+				
+				// Applica il font corrente al nodo
+				const currentFontClass = Array.from(document.body.classList).find(c => c.startsWith('font-'));
+				if (currentFontClass) {
+					div.classList.add(currentFontClass);
+				}
+
+				// Seleziona nodo al click SENZA re-render completo
+				div.addEventListener('click', (e) => {
+					e.stopPropagation();
+					this.selectedGroup = null; // deseleziona la graffa
+					// Se Ctrl+click o Shift+click, aggiungi alla selezione multipla
+					if (e.ctrlKey || e.shiftKey) {
+						const index = this.selectedNodes.findIndex(n => n.id === node.id);
+						if (index >= 0) {
+							// Rimuovi se già selezionato
+							this.selectedNodes.splice(index, 1);
+						} else {
+							// Aggiungi alla selezione
+							this.selectedNodes.push(node);
+						}
+						// Mantieni il nodo selezionato corrente per riferimento
+						if (!this.selectedNode) this.selectedNode = node;
+							this.render();                    // il re-render qui serve per la selezione multipla
+							this.updateRelatedNodes();
+					} else {
+						// Click normale: seleziona solo questo nodo
+						this.selectedNodes = [];
+						this.selectNode(node, false);     // ✅ aggiorna .focused senza distruggere i nodi
+					}
+				});
+
+				// Drag SOLO dal bordo del nodo, non dal contenuto
+				div.addEventListener('mousedown', (e) => this.startDrag(e, node));
+
+				// Div contenteditable per il contenuto (supporta formattazione rich-text)
+				const contentDiv = document.createElement('div');
+				contentDiv.className = 'node-content';
+				contentDiv.contentEditable = 'true';
+				contentDiv.setAttribute('aria-label', 'Testo del nodo');
+				contentDiv.innerHTML = this.parseMarkdownToHtml(node.text || '');
+				
+				// Applica il font corrente anche al content
+				if (currentFontClass) {
+					contentDiv.classList.add(currentFontClass);
+				}
+
+				contentDiv.addEventListener('mousedown', (e) => {
+					e.stopPropagation();
+				});
+
+				contentDiv.addEventListener('input', (e) => {
+					// Converti HTML in Markdown per il salvataggio
+					node.text = this.parseHtmlToMarkdown(contentDiv.innerHTML);
+					this.autoResizeTextarea(contentDiv);
+					div.setAttribute('aria-label', `Nodo: ${node.text}`);
+					
+					// Ritarda il calcolo dimensioni per dare tempo alle immagini di caricarsi
+					requestAnimationFrame(() => {
+						node.width = div.offsetWidth;
+						node.height = div.offsetHeight;
+						this.renderConnections();
+						this.saveToStorage();
+					});
+				});
+
+				contentDiv.addEventListener('focus', () => {
+					this.selectNode(node, false);
+				});
+				
+				// Gestione tasti per formattazione e cancellazione testo
+				contentDiv.addEventListener('keydown', (e) => {
+					// Formattazione: Ctrl+B/I/U
+					if ((e.ctrlKey || e.metaKey) && ['b', 'i', 'u'].includes(e.key.toLowerCase())) {
+						e.preventDefault();
+						const formatType = e.key.toLowerCase() === 'b' ? 'bold' : e.key.toLowerCase() === 'i' ? 'italic' : 'underline';
+						document.execCommand(formatType === 'underline' ? 'underline' : formatType, false, null);
+						return;
+					}
+					
+					// Canc/Backspace: lascia cancellare il testo SOLO se c'è testo selezionato o il contenuto non è vuoto
+					if (e.key === 'Backspace' || e.key === 'Delete') {
+						const selection = window.getSelection();
+						const selectedText = selection.toString();
+						const hasText = contentDiv.textContent && contentDiv.textContent.trim().length > 0;
+						
+						// Se c'è testo selezionato, lascia cancellare quello
+						if (selectedText.length > 0) {
+							return; // lascia fare al browser
+						}
+						
+						// Se il nodo ha testo e premi Canc/Back, lascia cancellare il testo
+						if (hasText) {
+							return; // lascia fare al browser
+						}
+						
+						// Se il nodo è vuoto, lascia passare l'evento per cancellare il nodo
+						// (il gestore globale della tastiera se ne occuperà)
+						return;
+					}
+				});
+
+				div.appendChild(contentDiv);
+				
+				// Ritarda il ridimensionamento iniziale per dare tempo a immagini e formattazione di caricarsi
+				requestAnimationFrame(() => {
+					this.autoResizeTextarea(contentDiv);
+					// Seconda passata dopo che il contenuto è renderizzato
+					requestAnimationFrame(() => {
+						node.width = div.offsetWidth;
+						node.height = div.offsetHeight;
+						this.renderConnections();
+					});
+				});
+				
+
+				// Icone
+				if (node.icons && node.icons.length > 0) {
+					const iconsDiv = document.createElement('div');
+					iconsDiv.className = 'node-icons';
+					node.icons.forEach(icon => {
+						const iconSpan = document.createElement('span');
+						iconSpan.textContent = icon;
+						iconSpan.style.fontSize = '1.2em';
+						iconsDiv.appendChild(iconSpan);
+					});
+					div.appendChild(iconsDiv);
+				}
+				
+				
+				// toggle
+				if (this.getDescendants(node.id).length > 0) {
+					const toggleBtn = document.createElement('button');
+					toggleBtn.className = 'collapse-btn';
+					toggleBtn.textContent = node.collapsed ? '+' : '−';
+					toggleBtn.setAttribute('aria-label',
+						node.collapsed ? 'Espandi ramo' : 'Comprimi ramo');
+					toggleBtn.addEventListener('mousedown', (e) => e.stopPropagation()); // evita il drag
+					toggleBtn.addEventListener('click', (e) => {
+						e.stopPropagation();
+						this.toggleCollapse(node);
+					});
+					div.appendChild(toggleBtn);
+				}
+				
+				
+				// Ridimensionamento manuale col mouse (stile PowerPoint)
+				// Se il nodo ha dimensioni salvate, applicale esplicitamente
+				// Riapplica sempre le dimensioni note, così alla riapertura
+				// il nodo non parte dalle dimensioni minime
+				if (node.width) {
+					div.style.width = `${node.width}px`;
+				}
+				if (node.manualResize && node.height) {
+					div.style.height = `${node.height}px`;
+				}
+
+				const resizeObserver = new ResizeObserver(() => {
+				  // Evita loop durante il render automatico
+				  if (this.isDragging) return;
+				  const newW = div.offsetWidth;
+				  const newH = div.offsetHeight;
+				  if (newW !== node.width || newH !== node.height) {
+					node.width = newW;
+					node.height = newH;
+					node.manualResize = true;   // segna che l'utente ha ridimensionato a mano
+					this.renderConnections();   // riallinea le linee ai nuovi bordi
+					this.saveToStorage();
+				  }
+				});
+				resizeObserver.observe(div);
+				
+				
+
+				return div;
+			}
+			
+			startDrag(e, node) {
+				// Non trascinare se si clicca sulla textarea
+				if (e.target.classList.contains('node-content') || e.target.closest('.node-content')) return;
+				e.stopPropagation();
+				this.isDragging = true;
+
+				const startX = e.clientX;
+				const startY = e.clientY;
+				const nodeStartX = node.x;
+				const nodeStartY = node.y;
+				let moved = false;
+
+				const handleMouseMove = (ev) => {
+					const dx = (ev.clientX - startX) / this.scale;
+					const dy = (ev.clientY - startY) / this.scale;
+					if (Math.abs(dx) > 2 || Math.abs(dy) > 2) moved = true;
+					node.x = nodeStartX + dx;
+					node.y = nodeStartY + dy;
+					const el = this.canvas.querySelector(`[data-node-id="${node.id}"]`);
+					if (el) {
+						el.style.left = `${node.x}px`;
+						el.style.top = `${node.y}px`;
+					}
+					this.renderConnections();
+				};
+
+				const handleMouseUp = () => {
+					document.removeEventListener('mousemove', handleMouseMove);
+					document.removeEventListener('mouseup', handleMouseUp);
+					this.isDragging = false;
+					if (moved) this.saveToStorage();
+				};
+
+				document.addEventListener('mousemove', handleMouseMove);
+				document.addEventListener('mouseup', handleMouseUp);
+			}
+
+            renderConnections() {
+                this.svg.innerHTML = '';
+
+                const isFocusMode = document.body.classList.contains('focus-mode');
+                const relatedIds = new Set();
+                
+                // Se focus mode attivo, calcola quali nodi sono correlati
+                if (isFocusMode && this.selectedNode) {
+                    relatedIds.add(this.selectedNode.id);
+                    if (this.selectedNode.parentId) {
+                        relatedIds.add(this.selectedNode.parentId);
+                    }
+                    this.nodes.filter(n => n.parentId === this.selectedNode.id)
+                              .forEach(child => relatedIds.add(child.id));
+                    if (this.selectedNode.parentId) {
+                        this.nodes.filter(n => n.parentId === this.selectedNode.parentId && n.id !== this.selectedNode.id)
+                                  .forEach(sib => relatedIds.add(sib.id));
+                    }
+                }
+
+                this.connections.forEach(conn => {
+                    const fromNode = this.nodes.find(n => n.id === conn.from);
+                    const toNode = this.nodes.find(n => n.id === conn.to);
+                    if (!fromNode || !toNode) return;
+					if (this.isNodeHidden(fromNode) || this.isNodeHidden(toNode)) return;
+
+                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    const startX = fromNode.x + fromNode.width / 2;
+                    const startY = fromNode.y + fromNode.height / 2;
+                    const endX = toNode.x + toNode.width / 2;
+                    const endY = toNode.y + toNode.height / 2;
+
+                    const controlX1 = startX + (endX - startX) / 2;
+                    const controlY1 = startY;
+                    const controlX2 = startX + (endX - startX) / 2;
+                    const controlY2 = endY;
+
+                    const d = `M ${startX} ${startY} C ${controlX1} ${controlY1}, ${controlX2} ${controlY2}, ${endX} ${endY}`;
+
+                    path.setAttribute('d', d);
+                    path.setAttribute('class', 'connection-line');
+                    path.setAttribute('stroke', this.effectiveColor(conn.color || '#333'));
+                    
+                    // Se focus mode, rendi trasparenti le connessioni non correlate
+                    if (isFocusMode && relatedIds.size > 0) {
+                        if (relatedIds.has(conn.from) && relatedIds.has(conn.to)) {
+                            path.setAttribute('class', 'connection-line is-related');
+                        }
+                    }
+
+                    this.svg.appendChild(path);
+                });
+                
+                // Disegna le graffe dei gruppi
+				this.groups.forEach(group => {
+					const groupNodes = this.nodes.filter(n => group.nodeIds.includes(n.id));
+					// Nascondi la graffa se non ci sono almeno 2 nodi visibili
+					const visibleNodes = groupNodes.filter(n => !this.isNodeHidden(n));
+					if (visibleNodes.length < 2) return;
+					this.updateGroupPosition(group);
+					this.drawGroupBrace(group);
+				});
+            }
+            
+            // Disegna una graffa per un gruppo
+            drawGroupBrace(group) {
+                const { x, y, height, color } = group;
+                const braceWidth = 15;
+                
+                // Path della graffa (curva a destra)
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                
+                // Graffa verticale che si apre a sinistra
+                const midY = y + height / 2;
+				const d = `
+				  M ${x} ${y}
+				  Q ${x} ${y + height * 0.1} ${x} ${y + height * 0.2}
+				  L ${x} ${midY - height * 0.1}
+				  Q ${x} ${midY} ${x + braceWidth} ${midY}
+				  Q ${x} ${midY} ${x} ${midY + height * 0.1}
+				  L ${x} ${y + height * 0.8}
+				  Q ${x} ${y + height} ${x} ${y + height}
+				`.trim().replace(/\s+/g, ' ');
+                
+                path.setAttribute('d', d);
+                path.setAttribute('fill', 'none');
+                path.setAttribute('stroke', this.effectiveColor(color || '#333'));
+                path.setAttribute('stroke-width', '3');
+                path.setAttribute('stroke-linecap', 'round');
+                path.setAttribute('class', 'group-brace');
+				path.__groupId = group.id;
+                
+                // Rendi la graffa cliccabile per modificare l'etichetta
+                path.style.cursor = 'pointer';
+				path.addEventListener('click', (e) => {
+					e.stopPropagation();
+					this.selectGroup(group);
+				});
+				path.addEventListener('dblclick', (e) => {
+					e.stopPropagation();
+					this.editGroupLabel(group);
+				});
+                
+                this.svg.appendChild(path);
+                
+                // Aggiungi etichetta testo
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', x + braceWidth + 10);
+                text.setAttribute('y', midY + 5);
+                text.setAttribute('fill', this.effectiveColor(color || '#333'));
+                text.setAttribute('font-size', '14');
+                text.setAttribute('font-weight', 'bold');
+                text.setAttribute('class', 'group-label');
+                text.textContent = group.label;
+                text.style.cursor = 'pointer';
+				text.addEventListener('click', (e) => {
+					e.stopPropagation();
+					this.selectGroup(group);
+				});
+				text.addEventListener('dblclick', (e) => {
+					e.stopPropagation();
+					this.editGroupLabel(group);
+				});
+                
+                this.svg.appendChild(text);
+            }
+            
+            // Modifica etichetta di un gruppo
+            editGroupLabel(group) {
+                const newLabel = prompt('Modifica etichetta del gruppo:', group.label);
+                if (newLabel !== null && newLabel.trim() !== '') {
+                    this.saveState();
+                    group.label = newLabel.trim();
+                    this.render();
+                    this.saveToStorage();
+                }
+            }
+			
+			
+			
+			// Seleziona una graffa (evidenziandola) per poterla eliminare con Canc
+			selectGroup(group) {
+				this.selectedGroup = group;
+				this.selectedNode = null; // evita conflitti con la cancellazione del nodo
+				// Resetta lo stile di tutte le graffe
+				this.svg.querySelectorAll('.group-brace').forEach(el => {
+					el.setAttribute('stroke-width', '3');
+					el.style.filter = '';
+				});
+				// Evidenzia quella selezionata
+				const braceEl = Array.from(this.svg.querySelectorAll('.group-brace'))
+					.find(el => el.__groupId === group.id);
+				if (braceEl) {
+					braceEl.setAttribute('stroke-width', '5');
+					braceEl.style.filter = 'drop-shadow(0 0 3px rgba(243,156,18,0.9))';
+				}
+			}
+
+			// Elimina la graffa selezionata (i nodi NON vengono cancellati)
+			deleteGroup(group) {
+				this.saveState(); // consente l'annullamento con Ctrl+Z
+				this.groups = this.groups.filter(g => g.id !== group.id);
+				this.selectedGroup = null;
+				this.render();
+				this.saveToStorage();
+			}
+			
+
+			async saveToStorage() {
+				const data = {
+					nodes: this.nodes,
+					connections: this.connections,
+					groups: this.groups,
+					nodeIdCounter: this.nodeIdCounter
+				};
+				try {
+					await dbSave('active', data);
+				} catch (err) {
+					console.error('Errore nel salvataggio automatico:', err);
+					// Fallback su localStorage se IndexedDB fallisce
+					try {
+						localStorage.setItem('mindmap-data', JSON.stringify(data));
+					} catch (fallbackErr) {
+						console.error('Anche localStorage fallito:', fallbackErr);
+					}
+				}
+			}
+
+
+			async loadFromStorage() {
+				try {
+					const data = await dbLoad('active');
+					if (data) {
+						this.nodes = data.nodes || [];
+						this.connections = data.connections || [];
+						this.groups = data.groups || [];          // ✅ AGGIUNTA: ripristina i gruppi
+						this.nodeIdCounter = data.nodeIdCounter || 0;
+						this.selectedNode = this.nodes.find(n => n.isRoot) || this.nodes[0] || null;
+						return true;
+					}
+				} catch (err) {
+					console.error('Errore nel caricamento da IndexedDB:', err);
+				}
+
+				// Fallback: prova localStorage
+				try {
+					const localData = localStorage.getItem('mindmap-data');
+					if (localData) {
+						const parsed = JSON.parse(localData);
+						this.nodes = parsed.nodes || [];
+						this.connections = parsed.connections || [];
+						this.groups = parsed.groups || [];
+						this.nodeIdCounter = parsed.nodeIdCounter || 0;
+						this.selectedNode = this.nodes.find(n => n.isRoot) || this.nodes[0] || null;
+						return true;
+					}
+				} catch (err) {
+					console.error('Errore nel caricamento da localStorage:', err);
+				}
+
+				return false;
+			}
+
+            async newMap() {
+                if (confirm('Sei sicuro di voler creare una nuova mappa? La mappa corrente verrà sostituita.')) {
+                    this.nodes = [];
+                    this.connections = [];
+                    this.undoStack = [];
+                    this.nodeIdCounter = 0;
+                    this.scale = 1;
+                    this.panX = 0;
+                    this.panY = 0;
+                    this.createRootNode();
+                    this.updateTransform();
+                    this.render();
+                    
+                    // Pulisci IndexedDB e localStorage
+                    await dbClear();
+                    localStorage.removeItem('mindmap-data');
+                }
+            }
+
+            showSaveNotification() {
+                const notification = document.getElementById('save-notification');
+                notification.classList.add('visible');
+                clearTimeout(this._notifTimeout);
+                this._notifTimeout = setTimeout(() => {
+                    notification.classList.remove('visible');
+                }, 2000);
+            }
+			
+			wrapText(ctx, text, maxWidth) {
+				const result = [];
+				// Rispetta prima gli a capo manuali
+				const paragraphs = text.split('\n');
+
+				paragraphs.forEach(paragraph => {
+					const words = paragraph.split(' ');
+					let currentLine = '';
+
+					words.forEach(word => {
+						const testLine = currentLine ? currentLine + ' ' + word : word;
+						if (ctx.measureText(testLine).width > maxWidth && currentLine) {
+							result.push(currentLine);
+							currentLine = word;
+						} else {
+							currentLine = testLine;
+						}
+					});
+					result.push(currentLine);
+				});
+
+				return result;
+			}
+
+            			async buildCanvasDataURL() {
+				if (this.nodes.length === 0) {
+					alert('Non c\'è nulla da esportare.');
+					return;
+				}
+
+				// 1. SINCRONIZZA le dimensioni reali dal DOM prima di esportare
+				this.nodes.forEach(node => {
+					const el = this.canvas.querySelector(`[data-node-id="${node.id}"]`);
+					if (el) {
+						node.width = el.offsetWidth;
+						node.height = el.offsetHeight;
+					}
+				});
+
+				const canvas = document.createElement('canvas');
+				const ctx = canvas.getContext('2d');
+
+				const minX = Math.min(...this.nodes.map(n => n.x));
+				const minY = Math.min(...this.nodes.map(n => n.y));
+				const maxX = Math.max(...this.nodes.map(n => n.x + n.width));
+				const maxY = Math.max(...this.nodes.map(n => n.y + n.height));
+
+				const padding = 50;
+				const scaleFactor = 2;
+				canvas.width = (maxX - minX + padding * 2) * scaleFactor;
+				canvas.height = (maxY - minY + padding * 2) * scaleFactor;
+
+				ctx.fillStyle = '#ffffff';
+				ctx.fillRect(0, 0, canvas.width, canvas.height);
+				ctx.scale(scaleFactor, scaleFactor);
+				ctx.translate(padding - minX, padding - minY);
+
+				// Connessioni
+				ctx.lineWidth = 3;
+				this.connections.forEach(conn => {
+					const fromNode = this.nodes.find(n => n.id === conn.from);
+					const toNode = this.nodes.find(n => n.id === conn.to);
+					if (!fromNode || !toNode) return;
+					const startX = fromNode.x + fromNode.width / 2;
+					const startY = fromNode.y + fromNode.height / 2;
+					const endX = toNode.x + toNode.width / 2;
+					const endY = toNode.y + toNode.height / 2;
+					ctx.strokeStyle = this.effectiveColor(color || '#333');
+					ctx.beginPath();
+					ctx.moveTo(startX, startY);
+					ctx.bezierCurveTo(
+						startX + (endX - startX) / 2, startY,
+						startX + (endX - startX) / 2, endY,
+						endX, endY
+					);
+					ctx.stroke();
+				});
+
+				// Nodi
+				this.nodes.forEach(node => {
+					const nodeColor = this.effectiveColor(node.color);
+					ctx.fillStyle = node.isRoot ? nodeColor : this.hexToSoft(nodeColor, 0.85);
+					ctx.strokeStyle = nodeColor;
+					ctx.lineWidth = 3;
+
+					const r = 10;
+					const { x, y, width: w, height: h } = node;
+
+					// Rettangolo arrotondato
+					ctx.beginPath();
+					ctx.moveTo(x + r, y);
+					ctx.lineTo(x + w - r, y);
+					ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+					ctx.lineTo(x + w, y + h - r);
+					ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+					ctx.lineTo(x + r, y + h);
+					ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+					ctx.lineTo(x, y + r);
+					ctx.quadraticCurveTo(x, y, x + r, y);
+					ctx.closePath();
+					ctx.fill();
+					ctx.stroke();
+
+					// Estrai il contenuto HTML del nodo per cercare immagini
+					const contentEl = this.canvas.querySelector(`[data-node-id="${node.id}"] .node-content`);
+					const hasImages = contentEl && contentEl.querySelectorAll('img').length > 0;
+					
+					// Disegna prima lo sfondo del nodo
+					ctx.fillStyle = node.isRoot ? '#ffffff' : '#1a1a1a';
+					const isLargeFont = document.body.classList.contains('large-font');
+					const fontScale = isLargeFont ? 1.25 : 1;   // coerente con 20/16 del CSS
+					const fontSize = (node.isRoot ? 18 : 16) * fontScale;
+					const fontFamily = this.getActiveFontFamily();
+					ctx.font = `${node.isRoot ? 'bold ' : ''}${fontSize}px ${fontFamily}`;
+
+					// Spaziatura in base al livello attivo (coerente col CSS spacing-level-*)
+					let letterSpacing = '0px';
+					if (document.body.classList.contains('spacing-level-1')) letterSpacing = '0.05em';
+					else if (document.body.classList.contains('spacing-level-2')) letterSpacing = '0.1em';
+					else if (document.body.classList.contains('spacing-level-3')) letterSpacing = '0.15em';
+					if ('letterSpacing' in ctx) ctx.letterSpacing = letterSpacing;
+					ctx.textAlign = 'center';
+					ctx.textBaseline = 'middle';
+
+					const padX = 18;
+					const maxTextWidth = w - padX * 2;
+					const lineHeight = fontSize * 1.5;
+
+					// Estrai testo puro da Markdown (rimuovi formattazione E immagini)
+					let plainText = (node.text || '')
+						.replace(/<img[^>]*>/g, '')  // rimuovi tag img
+						.replace(/\*\*(.+?)\*\*/g, '$1')  // grassetto
+						.replace(/\*(.+?)\*/g, '$1')      // corsivo
+						.replace(/__(.+?)__/g, '$1');     // sottolineato
+
+					// Spezza il testo in righe
+					const lines = this.wrapText(ctx, plainText, maxTextWidth);
+					const totalHeight = lines.length * lineHeight;
+					const startY = y + h / 2 - totalHeight / 2 + lineHeight / 2;
+
+					// Disegna ogni riga, applicando la formattazione se presente
+					lines.forEach((line, i) => {
+						const lineY = startY + i * lineHeight;
+						
+						// Controlla se la riga contiene formattazione
+						const originalLine = (node.text || '').split('\n')[i] || line;
+						
+						// Grassetto: **testo**
+						const boldMatches = originalLine.match(/\*\*(.+?)\*\*/g);
+						if (boldMatches && boldMatches.length > 0) {
+							ctx.font = `bold ${fontSize}px ${fontFamily}`;
+							ctx.fillText(line, x + w / 2, lineY);
+							ctx.font = `${fontSize}px ${fontFamily}`;
+						} else {
+							// Corsivo: *testo*
+							const italicMatches = originalLine.match(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g);
+							if (italicMatches && italicMatches.length > 0) {
+								ctx.font = `italic ${fontSize}px ${fontFamily}`;
+								ctx.fillText(line, x + w / 2, lineY);
+								ctx.font = `${fontSize}px ${fontFamily}`;
+							} else {
+								// Sottolineato: __testo__
+								const underlineMatches = originalLine.match(/__(.+?)__/g);
+								if (underlineMatches && underlineMatches.length > 0) {
+									ctx.fillText(line, x + w / 2, lineY);
+									// Canvas non supporta underline nativo, disegniamo una linea
+									const metrics = ctx.measureText(line);
+									ctx.beginPath();
+									ctx.moveTo(x + w / 2 - metrics.width / 2, lineY + fontSize / 2);
+									ctx.lineTo(x + w / 2 + metrics.width / 2, lineY + fontSize / 2);
+									ctx.stroke();
+								} else {
+									ctx.fillText(line, x + w / 2, lineY);
+								}
+							}
+						}
+					});
+				});
+				
+				// SECONDA PASSATA: disegna immagini (async)
+				await this.drawNodeImages(ctx);
+				
+				// TERZA PASSATA: disegna le graffe dei gruppi
+				this.groups.forEach(group => {
+					this.drawGroupBraceCanvas(ctx, group);
+				});
+
+				return canvas.toDataURL('image/png');
+			}
+			
+			// Disegna una graffa per un gruppo (canvas export)
+			drawGroupBraceCanvas(ctx, group) {
+				const { x, y, height, color } = group;
+				const braceWidth = 15;
+				const midY = y + height / 2;
+				
+				ctx.strokeStyle = this.effectiveColor(conn.color || '#333');
+				ctx.lineWidth = 3;
+				ctx.lineCap = 'round';
+				ctx.beginPath();
+				ctx.moveTo(x, y);
+				ctx.quadraticCurveTo(x, y + height * 0.1, x, y + height * 0.2);
+				ctx.lineTo(x, midY - height * 0.1);
+				ctx.quadraticCurveTo(x, midY, x + braceWidth, midY);          // punta verso destra
+				ctx.quadraticCurveTo(x, midY, x, midY + height * 0.1);        // riparte dalla punta
+				ctx.lineTo(x, y + height * 0.8);
+				ctx.quadraticCurveTo(x, y + height, x, y + height);
+				ctx.stroke();
+				
+				// Etichetta testo
+				ctx.fillStyle = this.effectiveColor(color || '#333');
+				ctx.textAlign = 'left';          // ← aggiungi questa riga
+				ctx.textBaseline = 'middle';
+				const fontFamily = this.getActiveFontFamily();
+				ctx.font = `bold 14px ${fontFamily}`;
+				ctx.fillText(group.label, x + braceWidth + 10, midY + 5);
+			}
+			
+			// Disegna le immagini dei nodi sul canvas (async per caricamento)
+			async drawNodeImages(ctx) {
+				const imagePromises = [];
+				
+				this.nodes.forEach(node => {
+					const contentEl = this.canvas.querySelector(`[data-node-id="${node.id}"] .node-content`);
+					if (!contentEl) return;
+					
+					const imgs = contentEl.querySelectorAll('img');
+					if (!imgs.length) return;
+					
+					const { x, y, width: w, height: h } = node;
+					const padX = 18;
+					
+					imgs.forEach((img, imgIndex) => {
+						const promise = new Promise((resolve) => {
+							// Solo immagini base64 (data:image) - non taintano il canvas
+							if (!img.src.startsWith('data:image')) {
+								console.warn('Immagine saltata (non base64):', img.src.substring(0, 50));
+								resolve(); // Salta immagini non-base64
+								return;
+							}
+							const imgObj = new Image();
+							imgObj.src = img.src;
+							imgObj.onload = () => {
+								// Calcola posizione e scala
+								const imgMaxWidth = w - padX * 2;
+								const imgScale = Math.min(1, imgMaxWidth / imgObj.naturalWidth);
+								const imgDrawWidth = imgObj.naturalWidth * imgScale;
+								const imgDrawHeight = imgObj.naturalHeight * imgScale;
+								const imgX = x + (w - imgDrawWidth) / 2;
+								const imgY = y + (h - imgDrawHeight) / 2;
+								console.log(`Immagine ${imgIndex+1} nel nodo ${node.id}: ${imgDrawWidth}x${imgDrawHeight} a ${imgX},${imgY}`);
+								ctx.drawImage(imgObj, imgX, imgY, imgDrawWidth, imgDrawHeight);
+								resolve();
+							};
+							imgObj.onerror = () => {
+								console.error('Errore caricamento immagine:', img.src.substring(0, 50));
+								resolve(); // Continua anche se fallisce
+							};
+						});
+						imagePromises.push(promise);
+					});
+				});
+				
+				console.log(`Totale immagini da disegnare: ${imagePromises.length}`);
+				// Aspetta che tutte le immagini siano caricate e disegnate
+				await Promise.all(imagePromises);
+				console.log('Tutte le immagini disegnate');
+			}
+			
+			exportAsImage() {
+			  if (this.nodes.length === 0) { alert('Non c\'è nulla da esportare.'); return; }
+			  const link = document.createElement('a');
+			  link.download = 'mappa-mentale.png';
+			  // buildCanvasDataURL è async, quindi usiamo una promise
+			  this.buildCanvasDataURL().then(dataURL => {
+				link.href = dataURL;
+				link.click();
+				this.showSaveNotification();
+			  });
+			}
+			
+			
+			
+			exportAsMarkdown() {
+			  if (this.nodes.length === 0) { alert('Non c\'è nulla da esportare.'); return; }
+			  const root = this.nodes.find(n => n.isRoot) || this.nodes[0];
+
+			  const buildMarkdown = (node, depth) => {
+				let line = depth === 0 ? `# ${node.text}` : `${'  '.repeat(depth - 1)}- ${node.text}`;
+				if (node.icons && node.icons.length) line += ` ${node.icons.join(' ')}`;
+				line += '\n';
+				if (node.note) line += `${'  '.repeat(depth)}> ${node.note.replace(/\n/g, ' ')}\n`;
+				const children = this.nodes.filter(n => n.parentId === node.id);
+				children.forEach(child => { line += buildMarkdown(child, depth + 1); });
+				return line;
+			  };
+
+			  const md = buildMarkdown(root, 0);
+			  this.downloadBlob(md, 'mappa-mentale.md', 'text/markdown');
+			}
+			
+			exportAsSVG() {
+			  if (this.nodes.length === 0) { alert('Non c\'è nulla da esportare.'); return; }
+
+			  // Sincronizza le dimensioni reali dal DOM
+			  this.nodes.forEach(node => {
+				const el = this.canvas.querySelector(`[data-node-id="${node.id}"]`);
+				if (el) { node.width = el.offsetWidth; node.height = el.offsetHeight; }
+			  });
+
+			  const minX = Math.min(...this.nodes.map(n => n.x)) - 50;
+			  const minY = Math.min(...this.nodes.map(n => n.y)) - 50;
+			  const maxX = Math.max(...this.nodes.map(n => n.x + n.width)) + 50;
+			  const maxY = Math.max(...this.nodes.map(n => n.y + n.height)) + 50;
+			  const w = maxX - minX, h = maxY - minY;
+
+			  // Stato opzioni di accessibilità (lette dalle classi del body)
+			  const fontScale = document.body.classList.contains('large-font') ? 1.25 : 1;
+			  let letterSpacing = '0em', wordSpacing = '0em';
+			  if (document.body.classList.contains('spacing-level-1'))      { letterSpacing = '0.05em'; wordSpacing = '0.1em'; }
+			  else if (document.body.classList.contains('spacing-level-2')) { letterSpacing = '0.1em';  wordSpacing = '0.15em'; }
+			  else if (document.body.classList.contains('spacing-level-3')) { letterSpacing = '0.15em'; wordSpacing = '0.2em'; }
+
+			  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${minX} ${minY} ${w} ${h}">`;
+			  svg += `<rect x="${minX}" y="${minY}" width="${w}" height="${h}" fill="#ffffff"/>`;
+
+			  // Connessioni (curva di Bézier)
+			  this.connections.forEach(conn => {
+				const f = this.nodes.find(n => n.id === conn.from);
+				const t = this.nodes.find(n => n.id === conn.to);
+				if (!f || !t) return;
+				const sx = f.x + f.width/2, sy = f.y + f.height/2;
+				const ex = t.x + t.width/2, ey = t.y + t.height/2;
+				const cx = sx + (ex - sx)/2;
+				svg += `<path d="M ${sx} ${sy} C ${cx} ${sy}, ${cx} ${ey}, ${ex} ${ey}" stroke="${conn.color||'#333'}" stroke-width="3" fill="none"/>`;
+			  });
+
+			  // Nodi con formattazione testo e immagini
+			  this.nodes.forEach(node => {
+				const fill = node.isRoot ? node.color : this.hexToSoft(node.color, 0.85);
+				const textColor = node.isRoot ? '#ffffff' : '#1a1a1a';
+				const svgFontFamily = this.getActiveFontFamily().replace(/'/g, '');
+				svg += `<rect x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" rx="10" fill="${fill}" stroke="${node.color}" stroke-width="3"/>`;
+
+				const contentEl = this.canvas.querySelector(`[data-node-id="${node.id}"] .node-content`);
+				const hasImages = contentEl && contentEl.querySelector('img');
+
+				if (hasImages) {
+				  const imgs = contentEl.querySelectorAll('img');
+				  const padX = 18;
+				  const imgMaxWidth = node.width - padX * 2;
+
+				  imgs.forEach((img) => {
+					const naturalWidth = img.naturalWidth || 200;
+					const naturalHeight = img.naturalHeight || 150;
+					const imgScale = Math.min(1, imgMaxWidth / naturalWidth);
+					const imgWidth = naturalWidth * imgScale;
+					const imgHeight = naturalHeight * imgScale;
+					const imgX = node.x + (node.width - imgWidth) / 2;
+					const imgY = node.y + (node.height - imgHeight) / 2;
+					svg += `<image href="${img.src}" x="${imgX}" y="${imgY}" width="${imgWidth}" height="${imgHeight}" preserveAspectRatio="xMidYMid meet"/>`;
+				  });
+				} else {
+					  const plainText = (node.text || '')
+						.replace(/\*\*(.+?)\*\*/g, '$1')
+						.replace(/\*(.+?)\*/g, '$1')
+						.replace(/__(.+?)__/g, '$1')
+						.replace(/<img[^>]*>/g, '')
+						.replace(/\n/g, ' ');
+
+					  const isBold = node.text && node.text.includes('**');
+					  const isItalic = node.text && node.text.match(/(?<!\*)\*(?!\*)/);
+
+					  let fontStyle = '';
+					  if (isBold) fontStyle += 'font-weight="bold" ';
+					  if (isItalic) fontStyle += 'font-style="italic" ';
+
+					  const nodeFontSize = (node.isRoot ? 18 : 16) * fontScale;
+					  const lineHeight = nodeFontSize * 1.5;   // coerente col PNG
+					  const padX = 18;
+					  const maxTextWidth = node.width - padX * 2;
+
+					  // Converte letterSpacing/wordSpacing (es. "0.1em") in px per la misurazione
+					  const lsPx = parseFloat(letterSpacing) * nodeFontSize;
+					  const wsPx = parseFloat(wordSpacing)  * nodeFontSize;
+
+					  // Canvas temporaneo SOLO per misurare il testo (riusa la stessa logica del PNG)
+					  const measureCtx = document.createElement('canvas').getContext('2d');
+					  measureCtx.font = `${isBold ? 'bold ' : ''}${isItalic ? 'italic ' : ''}${nodeFontSize}px ${svgFontFamily}`;
+					  if ('letterSpacing' in measureCtx) measureCtx.letterSpacing = `${lsPx}px`;
+					  if ('wordSpacing'  in measureCtx) measureCtx.wordSpacing  = `${wsPx}px`;
+
+					  // Spezza in righe rispettando la larghezza del nodo (stessa idea di wrapText)
+					  const lines = this.wrapText(measureCtx, plainText, maxTextWidth);
+
+					  // Centra verticalmente il blocco di righe
+					  const totalHeight = lines.length * lineHeight;
+					  const centerX = node.x + node.width / 2;
+					  const startY  = node.y + node.height / 2 - totalHeight / 2 + lineHeight / 2;
+
+					  svg += `<text x="${centerX}" y="${startY}" `
+						   + `fill="${textColor}" font-family="${svgFontFamily}" `
+						   + `font-size="${nodeFontSize}" ${fontStyle}`
+						   + `letter-spacing="${letterSpacing}" word-spacing="${wordSpacing}" `
+						   + `text-anchor="middle" dominant-baseline="middle">`;
+
+					  lines.forEach((line, i) => {
+						svg += `<tspan x="${centerX}" dy="${i === 0 ? 0 : lineHeight}">${this.escapeXml(line)}</tspan>`;
+					  });
+
+					  svg += `</text>`;
+					}
+			  });
+
+			  // Graffe dei gruppi
+			  const svgFontFamily = this.getActiveFontFamily().replace(/'/g, '');
+			  this.groups.forEach(group => {
+				this.updateGroupPosition(group);
+				const { x, y, height, color } = group;
+				const braceWidth = 15;
+				const midY = y + height / 2;
+				const d = `M ${x} ${y} Q ${x} ${y + height*0.1} ${x} ${y + height*0.2} `
+						+ `L ${x} ${midY - height*0.1} Q ${x} ${midY} ${x + braceWidth} ${midY} `
+						+ `Q ${x} ${midY} ${x} ${midY + height*0.1} `
+						+ `L ${x} ${y + height*0.8} Q ${x} ${y + height} ${x} ${y + height}`;
+				svg += `<path d="${d}" fill="none" stroke="${this.effectiveColor(color||'#333')}" stroke-width="3" stroke-linecap="round"/>`;
+				svg += `<text x="${x + braceWidth + 10}" y="${midY + 5}" `
+					 + `fill="${this.effectiveColor(color||'#333')}" font-family="${svgFontFamily}" `
+					 + `font-size="${14 * fontScale}" font-weight="bold" text-anchor="start" `
+					 + `dominant-baseline="middle">${this.escapeXml(group.label)}</text>`;
+			  });
+
+			  svg += `</svg>`;
+			  this.downloadBlob(svg, 'mappa-mentale.svg', 'image/svg+xml');
+			}
+
+			escapeXml(str) {
+			  return (str||'').replace(/[<>&'"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'}[c]));
+			}
+			
+			
+			exportAsPDF() {
+			  if (this.nodes.length === 0) { alert('Non c\'è nulla da esportare.'); return; }
+			  const { jsPDF } = window.jspdf;
+			  // buildCanvasDataURL è async
+			  this.buildCanvasDataURL().then(dataURL => {
+				const img = new Image();
+				img.onload = () => {
+				  const orientation = img.width > img.height ? 'l' : 'p';
+				  const pdf = new jsPDF({ orientation, unit: 'px', format: [img.width, img.height] });
+				  pdf.addImage(dataURL, 'PNG', 0, 0, img.width, img.height);
+				  pdf.save('mappa-mentale.pdf');
+				  this.showSaveNotification();
+				};
+				img.src = dataURL;
+			  });
+			}
+			
+			
+			downloadBlob(content, filename, mimeType) {
+			  const blob = new Blob([content], { type: mimeType });
+			  const url = URL.createObjectURL(blob);
+			  const link = document.createElement('a');
+			  link.href = url;
+			  link.download = filename;
+			  link.click();
+			  URL.revokeObjectURL(url);
+			  this.showSaveNotification();
+			}
+			
+			
+			
+			
+			
+			saveToFile() {
+				const data = {
+					version: '1.0',
+					app: 'SimpliMap Edu',
+					savedAt: new Date().toISOString(),
+					nodes: this.nodes,
+					connections: this.connections,
+					groups: this.groups,
+					nodeIdCounter: this.nodeIdCounter
+				};
+
+				const json = JSON.stringify(data, null, 2); // indentato = leggibile
+				const blob = new Blob([json], { type: 'application/json' });
+				const url = URL.createObjectURL(blob);
+
+				const link = document.createElement('a');
+				link.href = url;
+				link.download = 'mappa-mentale.simplimap'; // o .json
+				link.click();
+
+				URL.revokeObjectURL(url); // libera la memoria
+				this.showSaveNotification();
+			}
+			
+			
+			
+			loadFromFile(file) {
+				const reader = new FileReader();
+				reader.onload = (e) => {
+					try {
+						const data = JSON.parse(e.target.result);
+
+						// Validazione minima
+						if (!data.nodes || !Array.isArray(data.nodes)) {
+							alert('File non valido: struttura non riconosciuta.');
+							return;
+						}
+
+						this.saveState(); // permette l'undo
+						this.nodes = data.nodes;
+						this.connections = data.connections || [];
+						this.groups = data.groups || [];
+						this.nodeIdCounter = data.nodeIdCounter ||
+							(Math.max(0, ...this.nodes.map(n => n.id)) + 1);
+						this.selectedNode = this.nodes.find(n => n.isRoot) || this.nodes[0] || null;
+
+						this.resetZoom();
+						this.render();
+						this.centerMap();
+						this.saveToStorage();
+					} catch (err) {
+						console.error('Errore nel caricamento del file:', err);
+						alert('Impossibile aprire il file: formato non valido.');
+					}
+				};
+				reader.readAsText(file);
+			}
+			
+			
+			startAutoSave(intervalMs = 30000) {
+				// Evita salvataggi inutili se nulla è cambiato
+				this._lastSavedSnapshot = '';
+				this._autoSaveTimer = setInterval(async () => {
+					const snapshot = JSON.stringify({
+						nodes: this.nodes,
+						connections: this.connections,
+						groups: this.groups,
+						nodeIdCounter: this.nodeIdCounter
+					});
+
+					if (snapshot !== this._lastSavedSnapshot) {
+						// Usa lo stesso canale del salvataggio principale (IndexedDB,
+						// con fallback automatico su localStorage dentro saveToStorage)
+						await this.saveToStorage();
+						this._lastSavedSnapshot = snapshot;
+						console.log('💾 Autosave eseguito', new Date().toLocaleTimeString());
+					}
+				}, intervalMs);
+			}
+			
+			
+			// Converte un colore HEX in una versione tenue (mescolata con bianco)
+			// Produce un colore PASTELLO OPACO (non trasparente)
+			hexToSoft(hex, ratio = 0.85) {
+				hex = hex.replace('#', '');
+				if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+				const r = parseInt(hex.substring(0, 2), 16);
+				const g = parseInt(hex.substring(2, 4), 16);
+				const b = parseInt(hex.substring(4, 6), 16);
+				const mix = (c) => Math.round(c + (255 - c) * ratio); // ratio alto = più chiaro
+				return `rgb(${mix(r)}, ${mix(g)}, ${mix(b)})`;
+			}
+			
+			// Desatura un colore HEX avvicinandolo al grigio (per low-sensory)
+			desaturateHex(hex, amount = 0.7) {  // Il parametro amount (0.55) controlla quanto il colore si avvicina al grigio: più alto = più spento. Regolalo a piacere (es. 0.4 più acceso, 0.7 molto tenue).
+			  hex = hex.replace('#', '');
+			  if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+			  const r = parseInt(hex.substring(0, 2), 16);
+			  const g = parseInt(hex.substring(2, 4), 16);
+			  const b = parseInt(hex.substring(4, 6), 16);
+			  // Luminanza percepita (grigio equivalente)
+			  const gray = 0.3 * r + 0.59 * g + 0.11 * b;
+			  const mix = (c) => Math.round(c + (gray - c) * amount);
+			  const toHex = (c) => mix(c).toString(16).padStart(2, '0');
+			  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+			}
+
+			// Restituisce il colore effettivo da usare: desaturato se low-sensory è attivo
+			effectiveColor(hex) {
+			  if (!hex) return '#333333';
+			  return document.body.classList.contains('low-sensory')
+				? this.desaturateHex(hex)
+				: hex;
+			}
+			
+        }
+
+        // Inizializza l'applicazione
+        document.addEventListener('DOMContentLoaded', () => {
+            window.mindMap = new MindMap();
+        });
+    </script>
+</body>
+</html>

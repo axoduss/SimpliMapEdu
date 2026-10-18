@@ -877,6 +877,20 @@
 		</div>
 	</div>
 	
+	<div class="note-panel" id="ai-panel" role="dialog" aria-label="Assistente IA" style="width:340px;">
+	  <h3 style="margin-bottom:10px; color:#2c3e50; font-size:1.1em;">🤖 Assistente</h3>
+	  <div id="ai-output" role="status" aria-live="polite"
+		   style="min-height:120px; max-height:260px; overflow:auto; padding:8px;
+				  border:2px solid #bdc3c7; border-radius:6px; font-size:14px;
+				  white-space:pre-wrap; background:#fafafa;">
+		Seleziona un nodo e scegli un'azione qui sotto.
+	  </div>
+	  <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+		<button id="ai-socratic" class="note-action">💬 Fammi riflettere</button>
+		<button id="ai-close" class="note-action" title="Minimizza" aria-label="Minimizza pannello">— Minimizza</button>
+	  </div>
+	</div>
+	
 
     <div class="help-panel" id="help-panel" role="dialog" aria-labelledby="help-title">
         <h3 id="help-title">⌨️ Scorciatoie da Tastiera</h3>
@@ -994,11 +1008,9 @@
                 this.panStartY = 0;
                 this.currentColor = '#4CAF50';
                 this.undoStack = [];
-				this.aiEnabled = false;      // IA disattivata di default: app come adesso
-				this.aiModelName = null;   // nome del modello rilevato
+				this.aiEnabled = false;      // IA disattivata di default
 				this.ollamaUrl = 'http://localhost:11434';
-				// Prefisso del modello da cercare: cambia QUI per usare un altro LLM
-				this.aiModelPrefix = 'gemma'; // es. 'llama', 'mistral', 'qwen'...
+				this.aiModel = 'gemma4:e4b';
 
                 this.canvas = document.getElementById('mindmap-canvas');
                 this.svg = document.getElementById('connections-svg');
@@ -1244,6 +1256,14 @@
 				
 				// Attivazione assistente IA locale (opzionale)
 				document.getElementById('btn-ai-toggle').addEventListener('click', () => this.toggleAI());
+				
+				// Pannello Assistente IA
+				document.getElementById('ai-close').addEventListener('click', () => {
+				  document.getElementById('ai-panel').classList.remove('visible');
+				});
+				document.getElementById('ai-socratic').addEventListener('click', () => this.aiAskSocratic());
+				
+				
             }
 
             handleKeyboard(e) {
@@ -1992,6 +2012,9 @@
 				this.updateRelatedNodes();
 				// Ridisegna connessioni per focus-mode
 				this.renderConnections();
+				
+				// Se il pannello IA è aperto, aggiorna l'intestazione col nuovo nodo
+				this.updateAIPanelForNode();
 			}
 
 			centerOnNode(node) {
@@ -3234,10 +3257,7 @@
 				if (!res.ok) return { available: false };
 				const data = await res.json();
 				const models = (data.models || []).map(m => m.name);
-				const match = models.find(m =>
-				  m.toLowerCase().startsWith(this.aiModelPrefix.toLowerCase())
-				);
-				return { available: true, models, model: match || null };
+				return { available: true, models };
 			  } catch (e) {
 				// Ollama non in esecuzione, non installato, timeout o CORS bloccato
 				return { available: false };
@@ -3265,7 +3285,7 @@
 			  // Se è già attiva, la disattiviamo (torna al comportamento base)
 			  if (this.aiEnabled) {
 				this.aiEnabled = false;
-				this.aiModelName = null;
+				document.getElementById('ai-panel').classList.remove('visible'); // chiudi il pannello
 				btn.classList.remove('active');
 				btn.setAttribute('aria-pressed', 'false');
 				this.setAIStatus('Assistente IA disattivato.');
@@ -3283,19 +3303,103 @@
 				return;
 			  }
 
-			  if (!result.model) {
-				this.aiEnabled = false;
-				btn.setAttribute('aria-pressed', 'false');
-				this.setAIStatus(`⚠️ Ollama c'è ma manca il modello "${this.aiModelPrefix}" (ollama pull ${this.aiModelPrefix}).`);
-				return;
-			  }
+				if (!result.models.includes(this.aiModel)) {
+				  this.aiEnabled = false;
+				  btn.setAttribute('aria-pressed', 'false');
+				  this.setAIStatus(`⚠️ Modello "${this.aiModel}" non trovato (ollama pull ${this.aiModel}).`);
+				  return;
+				}
 
 			  // Tutto a posto: IA pronta
 			  this.aiEnabled = true;
 			  this.aiModelName = result.model;
 			  btn.classList.add('active');
 			  btn.setAttribute('aria-pressed', 'true');
-			  this.setAIStatus(`✅ IA pronta (${this.aiModelName})`);
+			  this.openAIPanel();
+			  this.setAIStatus(`✅ IA pronta (${this.aiModel})`);
+			}
+			
+			// Apre il pannello dell'assistente
+			openAIPanel() {
+			  const panel = document.getElementById('ai-panel');
+			  const out = document.getElementById('ai-output');
+			  out.textContent = this.selectedNode
+				? `Nodo selezionato: "${this.plainNodeText(this.selectedNode)}". Premi "Fammi riflettere".`
+				: 'Seleziona un nodo, poi premi "Fammi riflettere".';
+			  panel.classList.add('visible');
+			}
+			
+			// Aggiorna l'intestazione del pannello IA col nodo attualmente selezionato
+			updateAIPanelForNode() {
+			  const panel = document.getElementById('ai-panel');
+			  if (!panel.classList.contains('visible')) return; // solo se aperto
+			  const out = document.getElementById('ai-output');
+			  out.textContent = this.selectedNode
+				? `Nodo selezionato: "${this.plainNodeText(this.selectedNode)}". Premi "Fammi riflettere".`
+				: 'Seleziona un nodo, poi premi "Fammi riflettere".';
+			}
+
+			// Testo pulito di un nodo (toglie Markdown e immagini), riusa la logica già presente
+			plainNodeText(node) {
+			  return (node?.text || '')
+				.replace(/<img[^>]*>/g, '')
+				.replace(/\*\*(.+?)\*\*/g, '$1')
+				.replace(/\*(.+?)\*/g, '$1')
+				.replace(/__(.+?)__/g, '$1')
+				.replace(/\n/g, ' ')
+				.trim();
+			}
+
+			// Chiamata di generazione a Ollama (non-streaming, semplice)
+			async aiGenerate(prompt) {
+			  const res = await fetch(`${this.ollamaUrl}/api/generate`, {
+				method: 'POST',
+				// niente header Content-Type: evita il preflight CORS
+				body: JSON.stringify({
+				  model: this.aiModel,
+				  prompt,
+				  stream: false
+				})
+			  });
+			  if (!res.ok) throw new Error('Risposta non valida da Ollama');
+			  const data = await res.json();
+			  return (data.response || '').trim();
+			}
+
+			// Funzione 1: domande socratiche sul nodo selezionato (IA come impalcatura)
+			async aiAskSocratic() {
+			  if (!this.aiEnabled) {
+				this.setAIStatus('Attiva prima l\'assistente IA.');
+				return;
+			  }
+			  if (!this.selectedNode) {
+				document.getElementById('ai-output').textContent = 'Seleziona prima un nodo.';
+				return;
+			  }
+			  const concetto = this.plainNodeText(this.selectedNode);
+			  if (!concetto) {
+				document.getElementById('ai-output').textContent = 'Il nodo selezionato è vuoto.';
+				return;
+			  }
+
+			  const out = document.getElementById('ai-output');
+			  out.textContent = '⏳ Sto pensando...';
+
+			  // Il prompt è il cuore: NON dare risposte, SOLO domande che aiutano a costruire
+			  const prompt =
+			`Sei un tutor che aiuta uno studente con DSA a costruire una mappa mentale.
+			NON dare risposte né contenuti. Fai SOLO 3 domande brevi, semplici e concrete
+			che aiutino lo studente a riflettere ed espandere da solo il concetto.
+			Usa frasi corte. Scrivi in italiano. Numera le domande da 1 a 3.
+
+			Concetto del nodo: "${concetto}"`;
+
+			  try {
+				const risposta = await this.aiGenerate(prompt);
+				out.textContent = risposta || 'Nessuna risposta ricevuta.';
+			  } catch (e) {
+				out.textContent = '⚠️ Non riesco a contattare il modello. Verifica che Ollama sia avviato (e il CORS configurato).';
+			  }
 			}
 			
 			

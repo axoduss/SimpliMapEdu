@@ -718,7 +718,10 @@
 		  stroke-width: 5px !important;
 		}
 		
-		
+		/* Stato assistente IA */
+		.toolbar button.ai-ready { background: #27ae60; color: white; }
+		.toolbar button.ai-error { background: #e67e22; color: white; }
+		.ai-feature[hidden] { display: none !important; }
 		
 		
     </style>
@@ -810,6 +813,14 @@
 		</div>
 	</div>
 	
+	<!-- GRUPPO: Assistente IA (opzionale, locale via Ollama) -->
+	<div class="tool-group" role="group" aria-label="Assistente IA locale">
+	  <span class="group-label">Assistente IA</span>
+	  <div class="group-row">
+		<button id="btn-ai-toggle" title="Attiva/disattiva l'assistente IA locale"
+				aria-label="Attiva assistente IA locale">🤖 Attiva IA</button>
+	  </div>
+	</div>
 
 
 
@@ -890,6 +901,7 @@
     <div class="save-notification" id="save-notification" role="status" aria-live="polite">
         ✓ Mappa salvata con successo!
     </div>
+	<div class="save-notification" id="ai-notification" role="status" aria-live="polite"></div>
 
     <script>
 
@@ -982,6 +994,11 @@
                 this.panStartY = 0;
                 this.currentColor = '#4CAF50';
                 this.undoStack = [];
+				this.aiEnabled = false;      // IA disattivata di default: app come adesso
+				this.aiModelName = null;   // nome del modello rilevato
+				this.ollamaUrl = 'http://localhost:11434';
+				// Prefisso del modello da cercare: cambia QUI per usare un altro LLM
+				this.aiModelPrefix = 'gemma'; // es. 'llama', 'mistral', 'qwen'...
 
                 this.canvas = document.getElementById('mindmap-canvas');
                 this.svg = document.getElementById('connections-svg');
@@ -1223,6 +1240,10 @@
 
                 // Ricalcola centro al ridimensionamento finestra
                 window.addEventListener('resize', () => this.render());
+				
+				
+				// Attivazione assistente IA locale (opzionale)
+				document.getElementById('btn-ai-toggle').addEventListener('click', () => this.toggleAI());
             }
 
             handleKeyboard(e) {
@@ -3200,7 +3221,86 @@
 				: hex;
 			}
 			
-        }
+			
+			// --- Assistente IA locale (Ollama + Gemma) ---
+
+			// Verifica se Ollama è raggiungibile e se il modello configurato è installato
+			async checkOllama() {
+			  try {
+				const res = await fetch(`${this.ollamaUrl}/api/tags`, {
+				  method: 'GET',
+				  signal: AbortSignal.timeout(2500) // non blocca l'app se Ollama non risponde
+				});
+				if (!res.ok) return { available: false };
+				const data = await res.json();
+				const models = (data.models || []).map(m => m.name);
+				const match = models.find(m =>
+				  m.toLowerCase().startsWith(this.aiModelPrefix.toLowerCase())
+				);
+				return { available: true, models, model: match || null };
+			  } catch (e) {
+				// Ollama non in esecuzione, non installato, timeout o CORS bloccato
+				return { available: false };
+			  }
+			}
+			
+			
+			
+			// Mostra un messaggio temporaneo come la notifica di salvataggio
+			setAIStatus(message) {
+			  const notification = document.getElementById('ai-notification');
+			  if (!notification) return;
+			  notification.textContent = message;
+			  notification.classList.add('visible');
+			  clearTimeout(this._aiNotifTimeout);
+			  this._aiNotifTimeout = setTimeout(() => {
+				notification.classList.remove('visible');
+			  }, 3000);
+			}
+
+			// Gestore del pulsante: attiva/disattiva l'IA su richiesta dell'utente
+			async toggleAI(btn) {
+			  if (!btn) btn = document.getElementById('btn-ai-toggle');
+
+			  // Se è già attiva, la disattiviamo (torna al comportamento base)
+			  if (this.aiEnabled) {
+				this.aiEnabled = false;
+				this.aiModelName = null;
+				btn.classList.remove('active');
+				btn.setAttribute('aria-pressed', 'false');
+				this.setAIStatus('Assistente IA disattivato.');
+				return;
+			  }
+
+			  // Attivazione: prima verifichiamo che Ollama e il modello ci siano
+			  this.setAIStatus('⏳ Verifico Ollama...');
+			  const result = await this.checkOllama();
+
+			  if (!result.available) {
+				this.aiEnabled = false;
+				btn.setAttribute('aria-pressed', 'false');
+				this.setAIStatus('⚠️ Ollama non rilevato. Avvialo in locale per usare l\'IA.');
+				return;
+			  }
+
+			  if (!result.model) {
+				this.aiEnabled = false;
+				btn.setAttribute('aria-pressed', 'false');
+				this.setAIStatus(`⚠️ Ollama c'è ma manca il modello "${this.aiModelPrefix}" (ollama pull ${this.aiModelPrefix}).`);
+				return;
+			  }
+
+			  // Tutto a posto: IA pronta
+			  this.aiEnabled = true;
+			  this.aiModelName = result.model;
+			  btn.classList.add('active');
+			  btn.setAttribute('aria-pressed', 'true');
+			  this.setAIStatus(`✅ IA pronta (${this.aiModelName})`);
+			}
+			
+			
+			
+		}
 
         // Inizializza l'applicazione
         document.addEventListener('DOMContentLoaded', () => {

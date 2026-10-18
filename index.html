@@ -1203,6 +1203,8 @@
                 container.addEventListener('mousedown', (e) => this.startPan(e));
                 document.addEventListener('mousemove', (e) => this.doPan(e));
                 document.addEventListener('mouseup', () => this.endPan());
+				// Zoom con la rotella del mouse
+				container.addEventListener('wheel', (e) => this.handleWheelZoom(e), { passive: false });
 
                 // Touch support
                 container.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
@@ -2026,6 +2028,36 @@
                 this.scale = Math.max(0.3, Math.min(3, this.scale + delta));
                 this.updateTransform();
             }
+			
+			handleWheelZoom(e) {
+				// Evita lo scroll della pagina
+				e.preventDefault();
+
+				// Direzione della rotella: su = zoom avanti, giù = zoom indietro
+				const delta = e.deltaY < 0 ? 0.1 : -0.1;
+				const oldScale = this.scale;
+				const newScale = Math.max(0.3, Math.min(3, oldScale + delta));
+
+				// Se lo zoom non cambia (già al limite), non fare nulla
+				if (newScale === oldScale) return;
+
+				// Coordinate del mouse rispetto al contenitore
+				const rect = document.getElementById('canvas-container').getBoundingClientRect();
+				const mouseX = e.clientX - rect.left;
+				const mouseY = e.clientY - rect.top;
+
+				// Mantiene fermo il punto sotto il cursore durante lo zoom
+				// (converte il punto schermo in coordinate del canvas, poi riposiziona il pan)
+				const canvasX = (mouseX - this.panX) / oldScale;
+				const canvasY = (mouseY - this.panY) / oldScale;
+
+				this.scale = newScale;
+				this.panX = mouseX - canvasX * newScale;
+				this.panY = mouseY - canvasY * newScale;
+
+				this.updateTransform();
+			}
+			
 
             resetZoom() {
                 this.scale = 1;
